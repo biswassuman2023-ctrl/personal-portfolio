@@ -4,24 +4,36 @@ import { captureFontCSS } from './captureFonts'
 import * as THREE from 'three'
 
 /**
- * Photographs the notebook twice, so the turning sheet has something to show on
- * BOTH of its faces.
+ * Photographs the notebook three times, so the turning sheet has something to
+ * show on BOTH of its faces, and what its back shows is real.
  *
- *   content   the spread as it stands — the front of the sheet
- *   blank     the same notebook with every page's ink hidden — the back of the
- *             sheet, its cut edge, and any page not yet written
+ *   content    the spread as it stands — the front of the sheet
+ *   blank      the same notebook with every page's ink hidden — the material
+ *              the sheet's cut edge is built from
+ *   nextLeft   the NEXT spread's left page, ink visible — the back of the
+ *              sheet, i.e. the page actually being arrived at
  *
- * The second pass is the point of this module. The back of the sheet used to be
- * a hand-picked hex colour, and a hand-picked colour is a SECOND paper: it
- * measured 6/10/20 levels off the real page — a hue shift toward yellow rather
- * than a brightness difference — so the sheet visibly changed material as it
- * landed. Sampling a photograph of the notebook's own paper means there is
- * exactly one paper in the project and the WebGL sheet cannot drift from it.
- * The grain, the warmth and the across-page gradients all come along for free.
+ * nextLeft is what makes the back of the sheet a real page rather than a
+ * blank one. Without it, the sheet's back showed the same ink-free material
+ * as the cut edge — the only physically correct choice back when there was
+ * no next chapter to photograph, but wrong the moment one existed: a blank
+ * opaque sheet would sweep across the destination page for the whole turn,
+ * and the real content would only appear in a single frame once the mesh
+ * disappeared and the live DOM took over. Chapter 02's left page vanishing
+ * behind that blank sheet was exactly this.
  *
- * Both passes photograph the whole notebook rather than a single page, because
- * the paper is painted by SVG filters defined further up the tree; clone a page
- * on its own and every `url(#…)` in it resolves to nothing.
+ * The second pass (blank) is the reason the paper itself never drifts. The
+ * back and the cut edge used to be a hand-picked hex colour, and a hand-picked
+ * colour is a SECOND paper: it measured 6/10/20 levels off the real page — a
+ * hue shift toward yellow rather than a brightness difference — so the sheet
+ * visibly changed material as it landed. Sampling a photograph of the
+ * notebook's own paper means there is exactly one paper in the project and
+ * the WebGL sheet cannot drift from it. The grain, the warmth and the
+ * across-page gradients all come along for free.
+ *
+ * All three passes photograph the whole notebook rather than a single page,
+ * because the paper is painted by SVG filters defined further up the tree;
+ * clone a page on its own and every `url(#…)` in it resolves to nothing.
  *
  * Resolution is deliberately above the display's: this is what you look at
  * while the page is moving.
@@ -57,11 +69,60 @@ const MAX_PIXEL_RATIO = 3
  */
 const SHADING = '.notebook__page-shading'
 
+/**
+ * Every photograph printed anywhere in the captured DOM must actually be
+ * downloaded and decoded before the FIRST screenshot, or that screenshot
+ * — frozen forever into a texture — photographs an empty well.
+ *
+ * This is what made the college photo vanish specifically DURING a turn and
+ * nowhere else: the capture sequence waited for webfonts and one frame, then
+ * shot immediately, with nothing waiting on the `<image>` elements PhotoPrint
+ * renders. A ~370KB image has no reason to have finished its network fetch in
+ * that single frame. The live DOM's own `<img>` had the whole scroll to load
+ * and was fine by the time the turn landed — only the texture taken at mount,
+ * before the fetch resolved, ever had the gap.
+ *
+ * Rather than track which components use images, this DISCOVERS every URL
+ * actually referenced in the DOM at capture time — both HTML `<img src>` and
+ * SVG `<image href>` (PhotoPrint's developed prints are SVG) — and preloads
+ * each through a throwaway `Image` + `decode()`. Browsers cache by URL, so
+ * once that resolves, the real elements sharing the same URL paint from cache
+ * essentially instantly; nothing here has to know which component put an
+ * image where, so a future photo anywhere in the notebook is covered for
+ * free.
+ */
+async function waitForImages(root: HTMLElement) {
+  const urls = new Set<string>()
+  for (const img of root.querySelectorAll('img')) {
+    if (img.src) urls.add(img.src)
+  }
+  for (const img of root.querySelectorAll('image')) {
+    const href = img.getAttribute('href') ?? img.getAttribute('xlink:href')
+    if (href) urls.add(new URL(href, window.location.href).href)
+  }
+  await Promise.all(
+    Array.from(urls, (url) => {
+      const img = new Image()
+      img.src = url
+      // A missing or undecodable image must not block the capture forever;
+      // it will simply photograph as empty, same as before this existed.
+      return img.decode().catch(() => {})
+    }),
+  )
+}
+
 export type SpreadCapture = {
   /** The spread with its ink: the front of the turning sheet. */
   content: THREE.Texture
   /** The same notebook, ink hidden: the back of the sheet and its edge. */
   blank: THREE.Texture
+  /**
+   * The next spread's left page, ink visible: the back of the sheet where it
+   * actually carries content. `null` past the last spread — there is nothing
+   * to preview, and the shader falls back to material only, exactly as it did
+   * before this page existed.
+   */
+  nextLeft: THREE.Texture | null
   /** Texture pixels per CSS pixel, so the shader can undo the oversampling. */
   pixelRatio: number
 }
@@ -75,14 +136,14 @@ export function useSpreadCapture(target: HTMLElement | null, enabled: boolean) {
     let cancelled = false
     const made: THREE.Texture[] = []
 
-    const shoot = async (mode: 'content' | 'blank', fontCSS: string) => {
+    const shoot = async (mode: 'content' | 'blank' | 'nextLeft', fontCSS: string) => {
       target.setAttribute('data-capturing', mode)
-      // BOTH passes: neither face may carry baked lighting. The front used to
+      // ALL passes: neither face may carry baked lighting. The front used to
       // keep it, on the assumption the serialiser reproduced the page it was
       // photographing — it does not. Measured against the live page, the
       // captured right page came back nearly flat (~228 across) where the real
       // one runs 199 at the binding to 242 mid-page, so the sheet changed tone
-      // the instant a turn began. Lighting is the shader's job on both sides.
+      // the instant a turn began. Lighting is the shader's job on every face.
       const shading = Array.from(target.querySelectorAll<SVGGElement>(SHADING))
       for (const g of shading) g.setAttribute('display', 'none')
       try {
@@ -119,6 +180,10 @@ export function useSpreadCapture(target: HTMLElement | null, enabled: boolean) {
     const run = async () => {
       // Webfonts must resolve first, or the capture bakes in the fallbacks.
       await document.fonts.ready
+      // Photographs next — the preview layer's image is already in the DOM
+      // (just visibility:hidden), so this catches it before the very first
+      // shoot rather than only before whichever pass happens to reveal it.
+      await waitForImages(target)
       await new Promise((r) => requestAnimationFrame(() => r(null)))
       if (cancelled) return
 
@@ -129,7 +194,13 @@ export function useSpreadCapture(target: HTMLElement | null, enabled: boolean) {
         if (cancelled) return
         const blank = await shoot('blank', fontCSS)
         if (cancelled) return
-        setCapture({ content, blank, pixelRatio: density })
+        // Only if there is a next spread to preview at all — Pages.tsx does
+        // not render the preview layer when `previewLeft` is undefined, so
+        // its absence here means "nothing past this chapter yet," not a bug.
+        const hasPreview = !!target.querySelector('.notebook__page-content--preview')
+        const nextLeft = hasPreview ? await shoot('nextLeft', fontCSS) : null
+        if (cancelled) return
+        setCapture({ content, blank, nextLeft, pixelRatio: density })
       } catch {
         // A failed capture must not take the page down: the turn stays disabled
         // and the spread keeps rendering as live DOM.

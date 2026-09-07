@@ -28,6 +28,14 @@ type PageProps = {
   children?: ReactNode
   /** True while WebGL is drawing this sheet mid-turn; the DOM twin hides. */
   turning?: boolean
+  /**
+   * The NEXT spread's content for this page, rendered in the same frame but
+   * invisible in ordinary view — revealed only for the page-turn's capture of
+   * the turning sheet's back face, so that face can show a real photograph of
+   * the page it is arriving at instead of blank material. See page-turn.css's
+   * `[data-capturing='nextLeft']` rules and useSpreadCapture's third pass.
+   */
+  previewChildren?: ReactNode
 }
 
 /**
@@ -110,7 +118,7 @@ function PunchHole({ x, y }: { x: number; y: number }) {
   )
 }
 
-export function Page({ side, box, sheet, children, turning = false }: PageProps) {
+export function Page({ side, box, sheet, children, turning = false, previewChildren }: PageProps) {
   const outward = side === 'left' ? -1 : 1
   const understack = STACK_TONES.map((tone, i) => ({ tone, depth: i + 1 })).reverse()
 
@@ -159,6 +167,14 @@ export function Page({ side, box, sheet, children, turning = false }: PageProps)
         <div className="notebook__page-content">
           <div className="notebook__spread-frame" style={spreadFrame(box)}>
             {children}
+          </div>
+        </div>
+      ) : null}
+
+      {previewChildren ? (
+        <div className="notebook__page-content notebook__page-content--preview">
+          <div className="notebook__spread-frame" style={spreadFrame(box)}>
+            {previewChildren}
           </div>
         </div>
       ) : null}

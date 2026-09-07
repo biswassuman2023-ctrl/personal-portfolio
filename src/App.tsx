@@ -69,6 +69,17 @@ export default function App() {
   const rightSpread = capture && (active || landed) ? 1 : 0
   const leftSpread = landed ? 1 : 0
 
+  /*
+    What the turning sheet's BACK face is a photograph of: the left page of
+    the spread AFTER the one currently underneath. This is captured once, at
+    mount, from a hidden copy of that page — see Pages.tsx's `previewLeft`
+    and useSpreadCapture's third pass — so the sheet can show real content
+    landing instead of blank paper. `undefined` past the last spread, which
+    the capture and the shader both treat as "nothing to preview" rather than
+    as an error.
+  */
+  const previewLeftPage = BOOK[leftSpread + 1]?.left
+
   return (
     <main className="studio">
       <TopChrome />
@@ -81,26 +92,21 @@ export default function App() {
             <div className="stage__object" ref={setObjectNode}>
               <HeroDefs />
               {/*
-                Three states, one spread. At rest the notebook draws itself. While
-                a sheet is in the air its ink moves to the mesh. When the turn
-                finishes the mesh goes away and the notebook draws the spread the
-                sheet landed on — the back of the turned leaf on the left, the
-                next page on the right, both of them blank for now. The last frame
-                of a turn is therefore live DOM, not a texture: nothing to fade,
-                nothing sitting on top of anything.
+                Three states, one spread. At rest the notebook draws itself.
+                While a sheet is in the air its ink moves to the mesh, whose
+                back face now carries a real photograph of the spread being
+                arrived at (previewLeftPage below) rather than blank paper —
+                so the reveal happens as the sheet moves, not in a single
+                frame when it disappears. When the turn finishes, the mesh
+                goes away and the live DOM — already showing that same
+                content — is what is left. Nothing to fade, nothing sitting
+                on top of anything.
               */}
-              {/*
-                The notebook is handed two page nodes and knows nothing else:
-                no chapter, no turn state. Its turningSide/landed props date
-                from when there was no second chapter and a turn could only
-                blank the paper it left behind. There is a real chapter back
-                there now, so nothing needs blanking and neither prop is
-                passed — they are left on the component rather than deleted,
-                since removing them means editing the notebook and the
-                page-turn stylesheet, which is not worth touching to drop two
-                lines.
-              */}
-              <Notebook leftPage={BOOK[leftSpread].left} rightPage={BOOK[rightSpread].right} />
+              <Notebook
+                leftPage={BOOK[leftSpread].left}
+                rightPage={BOOK[rightSpread].right}
+                previewLeftPage={previewLeftPage}
+              />
               {capture ? (
                 <PageTurnStage progressRef={progress} capture={capture} active={active} />
               ) : null}

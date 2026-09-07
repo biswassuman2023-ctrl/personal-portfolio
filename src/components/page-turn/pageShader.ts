@@ -112,11 +112,12 @@ export const pageVertexShader = /* glsl */ `
 `
 
 /**
- * ONE PAPER. The front samples the captured spread; the back and the cut edge
- * sample a second capture of the same notebook with its ink hidden — so every
- * face of the sheet is a photograph of the paper it is travelling between,
- * carrying that paper's own grain, warmth and gradients. There is no invented
- * paper colour anywhere in this pipeline.
+ * ONE PAPER. The front samples the captured spread; the back samples a real
+ * photograph of the page it is arriving at, when one exists; the cut edge
+ * always samples the same notebook with its ink hidden — so every face of the
+ * sheet is a photograph of paper, never an invented colour, and the two faces
+ * that carry content each show the actual page they represent rather than one
+ * of them standing in for blank material.
  *
  * Shading is normalised against the sheet's RESTING orientation, so a flat page
  * shades by exactly 1.0. That is what makes the DOM-to-WebGL handoff invisible
@@ -129,9 +130,11 @@ export const pageVertexShader = /* glsl */ `
  * whatever lies underneath.
  */
 export const pageFragmentShader = /* glsl */ `
-  uniform sampler2D uInk;      // the spread, with its content
-  uniform sampler2D uPaper;    // the same notebook, ink hidden
+  uniform sampler2D uInk;      // the spread being left, with its content
+  uniform sampler2D uInkBack;  // the spread being arrived at, with its content
+  uniform sampler2D uPaper;    // the same notebook, ink hidden — material only
   uniform vec4 uInkRect;       // xy = origin, zw = size, in atlas UV
+  uniform vec4 uInkBackRect;   // uInkBack's page, in ITS OWN atlas (a separate capture)
   uniform vec4 uPaperRect;     // the ink-free paper to read, in that same space
   uniform vec3 uLight;
   uniform float uRestDot;      // the shading term of a page lying flat
@@ -139,6 +142,7 @@ export const pageFragmentShader = /* glsl */ `
   uniform float uShadeFloor;
   uniform float uEdgeTint;     // 1 for a face, slightly under for the cut edge
   uniform float uShowInk;      // 0 for the edge, which is paper on both sides
+  uniform float uShowBackInk;  // 1 for the face IF a next-spread capture exists, else 0
   /**
    * Mip bias, by however much the texture out-resolves the frame being drawn.
    *
@@ -174,14 +178,40 @@ export const pageFragmentShader = /* glsl */ `
 
   void main() {
     vec3 base;
-    bool front = uShowInk > 0.5 && gl_FrontFacing;
+    // Purely geometric: which side of the sheet is toward the viewer. Kept
+    // separate from "which texture to sample" below — the two used to be the
+    // same boolean (uShowInk > 0.5 && gl_FrontFacing), which was correct only
+    // by coincidence, back when the back of every sheet was blank material
+    // regardless of what page it was arriving at. Lighting is a property of
+    // which SIDE of the paper you're looking at; the texture sampled is a
+    // property of what's PRINTED there, and now that the back can carry real
+    // content those two questions have different answers.
+    bool facingFront = gl_FrontFacing;
 
-    if (front) {
+    if (uShowInk > 0.5 && facingFront) {
       base = texture2D(uInk, uInkRect.xy + vUv * uInkRect.zw, uLodBias).rgb;
+    } else if (uShowBackInk > 0.5 && !facingFront) {
+      // The page being arrived at, not a stand-in for it: a real capture of
+      // its own ink, in its own atlas (uInkBack is a separate photograph from
+      // uInk, not another region of it — see useSpreadCapture's nextLeft
+      // pass).
+      //
+      // The U axis is MIRRORED here, and it has to be: mesh-u=0 is always the
+      // hinge, and RIGHT_PAGE happens to keep its own inner (gutter-side)
+      // edge at u=0 too, which is why the front face never needed this and
+      // made the mirror easy to miss. LEFT_PAGE does not share that
+      // convention — its inner edge is at its HIGH x (the gutter sits to its
+      // right), so sampling it with the mesh's u unflipped puts the page's
+      // outer edge at the hinge and its inner edge at the free edge: every
+      // word on it mirrored left-right, which is exactly what a first render
+      // of this showed. Flipping u for this sample only is what a page
+      // physically does when it turns over a vertical hinge — reading
+      // direction reverses, top-to-bottom does not, so v is untouched.
+      base = texture2D(uInkBack, uInkBackRect.xy + vec2(1.0 - vUv.x, vUv.y) * uInkBackRect.zw, uLodBias).rgb * uEdgeTint;
     } else {
-      // Same region as the front, from the ink-free capture: this is the same
-      // sheet, seen from behind. Sampled in the same direction so the shading
-      // that belongs at the gutter stays at the gutter once the sheet lands.
+      // Material only: the cut edge always, and the back face whenever there
+      // is no next-spread capture to show instead (uShowBackInk 0) — the
+      // exact behaviour this shader had before nextLeft existed.
       base = texture2D(uPaper, uPaperRect.xy + vUv * uPaperRect.zw, uLodBias).rgb * uEdgeTint;
     }
 
@@ -201,14 +231,16 @@ export const pageFragmentShader = /* glsl */ `
     // and the right page's outer edge is its dimmest. One shared curve cannot
     // be both, and using the front's on the back is a visible 2% step across
     // the whole sheet — which reads as a second piece of paper, not as shading.
+    // This curve is about the PAGE'S POSITION, not what's printed on it, so it
+    // applies the same way whether the back is showing material or real ink.
     //
     // The back also has to LIFT above the bare material (1.016). An earlier
     // pass only had terms that darken and could never reach it.
-    base *= front ? pageLight(vUv.x, uFrontCurve, uSheens.x)
-                  : pageLight(vUv.x, uBackCurve, uSheens.y);
+    base *= facingFront ? pageLight(vUv.x, uFrontCurve, uSheens.x)
+                        : pageLight(vUv.x, uBackCurve, uSheens.y);
 
     vec3 n = normalize(vNormal);
-    if (!gl_FrontFacing) n = -n;
+    if (!facingFront) n = -n;
 
     // Half-Lambert, normalised so a page lying flat shades by exactly 1.0.
     // That identity is what makes the handoff invisible at both ends: the mesh

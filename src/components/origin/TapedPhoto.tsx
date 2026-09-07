@@ -37,6 +37,10 @@ type Props = {
   /** Along the print's top edge, as a fraction of its width. */
   tapeAt?: number
   edge?: 'deckle' | 'cut'
+  /** A developed print: same-origin image path. Omitted, the well stays bare. */
+  image?: string
+  /** Alt text for the developed print. Ignored while `image` is unset. */
+  alt?: string
 }
 
 export function TapedPhoto({
@@ -50,12 +54,25 @@ export function TapedPhoto({
   captionAt,
   tapeAt = 0.3,
   edge = 'cut',
+  image,
+  alt,
 }: Props) {
   const tape = { w: 104, h: 26 }
 
   return (
     <>
-      <PhotoPrint slot={slot} x={x} y={y} w={w} h={h} rotate={rotate} edge={edge} border={9} />
+      <PhotoPrint
+        slot={slot}
+        x={x}
+        y={y}
+        w={w}
+        h={h}
+        rotate={rotate}
+        edge={edge}
+        border={9}
+        image={image}
+        alt={alt}
+      />
 
       <div
         className="hero-artifact origin-tape"

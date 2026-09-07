@@ -14,6 +14,15 @@ type PagesProps = {
    * uncovered. Neither has been written yet.
    */
   landed?: boolean
+  /**
+   * The NEXT spread's left page — invisible in ordinary view, revealed only
+   * for the page-turn capture that photographs it for the turning sheet's
+   * back face. Only the left page carries this: the sheet's back is what the
+   * reader arrives at, and in this book's binding that is always a LEFT page
+   * (spreads.ts — the sheet's front is spread N's right page, its back is
+   * spread N+1's left page).
+   */
+  previewLeft?: ReactNode
 }
 
 /**
@@ -22,10 +31,16 @@ type PagesProps = {
  * whatever is printed on it as children, so the notebook itself stays a
  * physical object with no knowledge of the chapter it is showing.
  */
-export function Pages({ left, right, turningSide = null, landed = false }: PagesProps) {
+export function Pages({ left, right, turningSide = null, landed = false, previewLeft }: PagesProps) {
   return (
     <div className="notebook__pages" data-slot="page-stack">
-      <Page side="left" box={LEFT_PAGE} sheet={LEFT_SHEET_PATH} turning={turningSide === "left" || landed}>
+      <Page
+        side="left"
+        box={LEFT_PAGE}
+        sheet={LEFT_SHEET_PATH}
+        turning={turningSide === "left" || landed}
+        previewChildren={previewLeft}
+      >
         {left}
       </Page>
       <Page side="right" box={RIGHT_PAGE} sheet={RIGHT_SHEET_PATH} turning={turningSide === "right" || landed}>

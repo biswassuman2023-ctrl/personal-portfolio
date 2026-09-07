@@ -118,7 +118,10 @@ export function TurningPage({ progressRef, capture }: Props) {
   )
   useEffect(() => {
     const max = gl.capabilities.getMaxAnisotropy()
-    for (const texture of [capture.content, capture.blank]) {
+    const textures = [capture.content, capture.blank, capture.nextLeft].filter(
+      (t): t is THREE.Texture => t !== null,
+    )
+    for (const texture of textures) {
       if (texture.anisotropy === max) continue
       texture.anisotropy = max
       texture.needsUpdate = true
@@ -140,14 +143,18 @@ export function TurningPage({ progressRef, capture }: Props) {
      own geometry as a fraction of the frame, flipped in Y because canvas
      textures upload bottom-up. */
   const inkRect = useMemo(() => rectOf(RIGHT_PAGE), [])
-  /* The back of the sheet samples the SAME page region as the front, from the
-     ink-free capture — it is the same physical sheet, just its reverse. The
-     left page is deliberately not used: the serialiser renders that page's
-     gutter gradient far harder than the browser does, and the sheet would
-     carry a grey band around with it for the whole turn. Sampled in the same
-     direction as the front, so the gutter-side shading stays on the gutter
-     side when the sheet lands. */
+  /* The material sample for the cut edge — and the back's fallback when there
+     is no nextLeft capture. Deliberately the RIGHT page, not the left: the
+     serialiser renders the left page's gutter gradient far harder than the
+     browser does, and the edge would carry a grey band around with it for the
+     whole turn. Sampled in the same direction as the front, so the
+     gutter-side shading stays on the gutter side when the sheet lands. */
   const paperRect = useMemo(() => rectOf(RIGHT_PAGE), [])
+  /* Where the sheet is actually arriving: the next spread's LEFT page, in the
+     nextLeft capture's own atlas (a separate photograph, not a region of
+     `content` or `blank` — see useSpreadCapture). This is what the back of
+     the face mesh samples once it exists. */
+  const nextLeftRect = useMemo(() => rectOf(LEFT_PAGE), [])
 
   const shape = useMemo(
     () => ({
@@ -168,20 +175,27 @@ export function TurningPage({ progressRef, capture }: Props) {
       uOffset: { value: 0 },
       uInk: { value: capture.content },
       uPaper: { value: capture.blank },
+      // Falls back to the material capture (and uShowBackInk 0) when there is
+      // no next spread — the shader then behaves exactly as it did before
+      // this uniform existed. A sampler must always be bound to SOMETHING or
+      // WebGL errors, even when uShowBackInk keeps it from ever being read.
+      uInkBack: { value: capture.nextLeft ?? capture.blank },
       uInkRect: { value: inkRect },
       uPaperRect: { value: paperRect },
+      uInkBackRect: { value: nextLeftRect },
       uLight: { value: LIGHT },
       uRestDot: { value: REST_DOT },
       uShadeDepth: { value: SHADE_DEPTH },
       uShadeFloor: { value: SHADE_FLOOR },
       uEdgeTint: { value: 1 },
       uShowInk: { value: 1 },
+      uShowBackInk: { value: capture.nextLeft ? 1 : 0 },
       uLodBias: { value: lodBias },
       uFrontCurve: { value: FRONT_CURVE },
       uBackCurve: { value: BACK_CURVE },
       uSheens: { value: new THREE.Vector2(FRONT_SHEEN, BACK_SHEEN) },
     }),
-    [shape, capture, inkRect, paperRect, lodBias],
+    [shape, capture, inkRect, paperRect, nextLeftRect, lodBias],
   )
 
   const edgeUniforms = useMemo(
@@ -190,14 +204,20 @@ export function TurningPage({ progressRef, capture }: Props) {
       uOffset: { value: -PAPER_THICKNESS },
       uInk: { value: capture.content },
       uPaper: { value: capture.blank },
+      // Unused (uShowBackInk is always 0 for the edge — a cut edge is paper,
+      // not a printed face, on either side of the turn) but a sampler still
+      // needs a bound texture; reusing `blank` costs nothing extra to upload.
+      uInkBack: { value: capture.blank },
       uInkRect: { value: inkRect },
       uPaperRect: { value: paperRect },
+      uInkBackRect: { value: paperRect },
       uLight: { value: LIGHT },
       uRestDot: { value: REST_DOT },
       uShadeDepth: { value: SHADE_DEPTH },
       uShadeFloor: { value: SHADE_FLOOR },
       uEdgeTint: { value: EDGE_TINT },
       uShowInk: { value: 0 },
+      uShowBackInk: { value: 0 },
       uLodBias: { value: lodBias },
       uFrontCurve: { value: FRONT_CURVE },
       uBackCurve: { value: BACK_CURVE },

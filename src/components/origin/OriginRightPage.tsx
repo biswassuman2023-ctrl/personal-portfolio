@@ -30,7 +30,13 @@ export function OriginRightPage() {
 
       {/* No caption under this one — the handwritten note below it is the
           caption, and doing both would be saying it twice. */}
-      <TapedPhoto slot="origin-desk" {...DESK_PHOTO} tapeAt={0.44} />
+      <TapedPhoto
+        slot="origin-desk"
+        {...DESK_PHOTO}
+        tapeAt={0.44}
+        image="/desk-print.webp"
+        alt="A desk mid-project: laptop, coffee, and a notebook of scattered notes"
+      />
 
       {/* The one note in the margin that is a voice rather than a label. */}
       <p
@@ -56,13 +62,13 @@ export function OriginRightPage() {
 
       <div
         className="hero-artifact origin-mark"
-        style={{ left: u(788), top: u(684), width: u(272), height: u(10) }}
+        style={{ left: u(788), top: u(708), width: u(272), height: u(10) }}
       >
         <svg viewBox="0 0 272 10" aria-hidden="true">
           <path
             d={handUnderline(272, 10)}
             fill="none"
-            stroke="var(--origin-red-muted)"
+            stroke="#743026"
             strokeOpacity={0.75}
             strokeWidth={1.5}
             strokeLinecap="round"

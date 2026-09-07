@@ -50,7 +50,7 @@ export function JourneyPath() {
                   <path
                     d={stepArrow(arrow.w, arrow.h, i % 2 === 0 ? 0.02 : -0.02)}
                     fill="none"
-                    stroke="var(--origin-red-muted)"
+                    stroke="#743026"
                     strokeOpacity={0.85}
                     strokeWidth={1.6}
                     strokeLinecap="round"

@@ -10,24 +10,52 @@
    this spread just gives that red a real job instead of using it once on a
    seal and never again.
 
-   THE RULE IS NOW LOCKED TO THE FONT, not to what an element happens to be:
+   THE RULE IS LOCKED TO THE FONT, not to what an element happens to be:
 
-     LEFT PAGE    Pagkaki -> deep red.     Schoolbell -> muted red.
-     RIGHT PAGE   Pagkaki -> deep red.     Schoolbell -> jet black.
+     LEFT PAGE    Pagkaki -> bright red.     Schoolbell -> deep muted red.
+     RIGHT PAGE   Pagkaki -> bright red.     Schoolbell -> jet black.
 
    Every element on the spread is one or the other, so this reduces to "which
    page, which font" rather than a colour picked per component. Nothing here
    uses opacity to rank importance — a faded-looking word was the single most
-   common complaint about the pass before this one, and opacity was how each
-   instance of it got made. Hierarchy is now entirely size, weight of stroke,
-   and which of the two reds a piece of type is allowed to use; every colour
-   below is a flat, fully-opaque value. */
+   common complaint two passes back, and opacity was how each instance of it
+   got made. Hierarchy is entirely size, weight of stroke, and which of the
+   two reds a piece of type is allowed to use; every colour below is a flat,
+   fully-opaque value.
+
+   --origin-red went brighter/more saturated in this pass — the previous
+   editorial brick-red read as too close to brown at a glance, and Pagkaki
+   needs to announce itself as the loud half of the page. --origin-red-muted
+   went the other way, darker, so it still reads as clearly a shade of the
+   same ink rather than a second, lighter colour of its own. */
 
 .origin-page {
-  --origin-red: #7a2b22; /* deep red — Pagkaki, both pages */
-  --origin-red-muted: #8a4136; /* muted red — Schoolbell, LEFT page only */
+  --origin-red: #c1281b; /* bright red — Pagkaki, both pages */
+  --origin-red-muted: #743026; /* deep muted red — Schoolbell, LEFT page only */
   --origin-ink: #18140f; /* jet black — Schoolbell, RIGHT page only */
 }
+
+/* THESE THREE STAY var()-ONLY. The hand-drawn marks — the circle, both
+   arrows, the underline — are inline SVG in marks.ts/JourneyPath.tsx/
+   OriginLeftPage.tsx, and every one of them sets its own `stroke` as a
+   literal hex (#743026, the same value as --origin-red-muted) rather than
+   `stroke="var(--origin-red-muted)"`. That is not an oversight to tidy up.
+
+   An SVG presentation attribute survives the page-turn capture's DOM
+   serialisation verbatim, string and all — that is exactly why this project
+   uses them instead of classes. But `var(--origin-red-muted)` INSIDE that
+   attribute is a reference, not a value, and it only resolves in whatever
+   context the string is next parsed in. The capture re-renders the cloned
+   SVG in isolation from this stylesheet, the reference fails to resolve, and
+   an SVG `stroke` with no valid value paints as `none` — the mark vanishes,
+   silently, with nothing to see in the live page since it renders correctly
+   there. That is exactly what "the circle and arrow disappear only while the
+   page is turning" was: no live-page symptom, no visible authoring mistake,
+   only wrong in a texture nobody had reason to inspect stroke-by-stroke.
+
+   fonts.ts documents the same rule for the hero's own SVG type, for the same
+   reason. A CSS custom property is a promise that only a live cascade can
+   keep. */
 
 .origin-eyebrow,
 .origin-heading,
@@ -105,7 +133,10 @@
 .origin-narrative-block {
   display: flex;
   flex-direction: column;
-  gap: calc(var(--u) * 13);
+  /* Visibly more than a paragraph's own line-height (17u * 1.58 = ~27u), so
+     the two read as two separate notes rather than one paragraph with a
+     line break in it. */
+  gap: calc(var(--u) * 28);
 }
 
 .origin-narrative {
@@ -189,7 +220,10 @@
 .origin-closing {
   display: flex;
   flex-direction: column;
-  gap: calc(var(--u) * 8);
+  /* Clearly more than the story paragraph's own line-height above it
+     (18u * 1.7 = ~30.6u) — the setup and the payoff are two separate beats,
+     not two lines of one paragraph. */
+  gap: calc(var(--u) * 32);
 }
 
 .origin-closing__quiet {
@@ -225,37 +259,12 @@
   }
 }
 
-/* --------------------------------------------------------------- settle --
-   The one piece of motion on this spread, and it exists to cover a seam in
-   the page-turn rather than to decorate anything.
-
-   The turning sheet's BACK is ink-free paper — it samples the blank capture,
-   which is what the page-turn was built to do when there was no second
-   chapter to show back there. So at the instant the sheet lands and the mesh
-   switches off, this page's ink would otherwise appear from nothing in a
-   single frame. Fading it up over a fifth of a second reads as the ink
-   settling onto paper that has just come to rest, which is close enough to
-   what a real page does that the eye stops asking.
-
-   Fixing it properly means giving the sheet's back face a third capture of
-   this page, and that is a change to the page-turn's own capture and shader —
-   deliberately not made here. */
-
-.origin-page {
-  animation: origin-settle 220ms ease-out both;
-}
-
-@keyframes origin-settle {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .origin-page {
-    animation: none;
-  }
-}
+/* There used to be a 220ms fade-in here (origin-settle), covering the moment
+   the sheet landed and this page's ink appeared from nothing in a single
+   frame. That was a symptom of the turning sheet's back face being blank
+   material with no way to show a next chapter's content — fixed properly now
+   at the source (useSpreadCapture's nextLeft pass, pageShader's uInkBack), so
+   the mesh already carries this page's real ink as it lands and there is
+   nothing left for a fade to cover. Keeping the fade after that fix would
+   have made it a NEW seam instead of hiding an old one: crisp content on the
+   mesh, replaced at the handoff by DOM content fading up from transparent. */

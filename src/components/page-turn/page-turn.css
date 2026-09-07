@@ -67,3 +67,25 @@
    which sets display="none" as an ATTRIBUTE. A rule here would apply in the
    browser and be dropped by the capture's serialiser, which is not a failure
    you can see — it just quietly bakes the gutter gradient into the paper. */
+
+/* The third capture: the NEXT spread's left page, ink visible — what the
+   turning sheet's back face shows as it lands, so that face stops being
+   blank material and starts being a photograph of the page actually being
+   arrived at. The back's ink used to be entirely absent, which is what let
+   Chapter 02's left page vanish behind an opaque blank sheet for the whole
+   turn and only reappear in a single frame once the mesh disappeared.
+
+   The preview copy of that page always exists in the DOM (Page.tsx's
+   `previewChildren`), invisible in ordinary view, so there is nothing to
+   mount or wait on at capture time — only visibility to flip. */
+.notebook__page-content--preview {
+  visibility: hidden;
+}
+
+[data-capturing='nextLeft'] .notebook__page--left .notebook__page-content:not(.notebook__page-content--preview) {
+  visibility: hidden;
+}
+
+[data-capturing='nextLeft'] .notebook__page-content--preview {
+  visibility: visible;
+}

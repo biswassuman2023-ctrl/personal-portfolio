@@ -65,7 +65,7 @@ export function OriginLeftPage() {
           <path
             d={looseCircle(246, 72)}
             fill="none"
-            stroke="var(--origin-red-muted)"
+            stroke="#743026"
             strokeOpacity={0.82}
             strokeWidth={1.9}
             strokeLinecap="round"
@@ -89,7 +89,7 @@ export function OriginLeftPage() {
           <path
             d={arcArrow(76, 58)}
             fill="none"
-            stroke="var(--origin-red-muted)"
+            stroke="#743026"
             strokeOpacity={0.7}
             strokeWidth={1.5}
             strokeLinecap="round"
@@ -103,6 +103,8 @@ export function OriginLeftPage() {
         edge="deckle"
         caption="Delhi · 2025"
         captionAt={COLLEGE_CAPTION}
+        image="/college-duotone.webp"
+        alt="Faculty of Arts, University of Delhi"
         tapeAt={0.26}
       />
 
@@ -111,14 +113,13 @@ export function OriginLeftPage() {
         style={{ left: u(NARRATIVE.x), top: u(NARRATIVE.y), width: u(NARRATIVE.w) }}
       >
         <p className="origin-narrative">
-          I started as an Economics student at the University of Delhi, where I
-          completed my graduation at Motilal Nehru College.
+          I started with Economics at the University of Delhi, graduating from
+          Motilal Nehru College.
         </p>
         <p className="origin-narrative">
-          Somewhere along the way, curiosity pulled me toward technology. I
-          started teaching myself computer science and web development,
-          learning by building, experimenting, and figuring things out one
-          project at a time.
+          Then curiosity pulled me toward technology. I taught myself computer
+          science and web development — learning by building, breaking, and
+          figuring things out.
         </p>
       </div>
     </div>

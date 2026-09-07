@@ -6,15 +6,17 @@ import { cutRect, deckleRect } from './paper'
 /**
  * A printed photograph lying on the page.
  *
- * The image well is an EMPTY PLACEHOLDER by design — no stock photography, no
- * generated faces. It is a bare emulsion panel with corner crop marks, which
- * reads as an unexposed print rather than as a missing asset. Each carries a
- * `data-slot` so the real image can be dropped in later without touching the
- * composition.
+ * The well is an EMPTY PLACEHOLDER unless `image` is given — no stock
+ * photography, no generated faces, ever. Without one it is a bare emulsion
+ * panel with corner crop marks, which reads as an unexposed print rather than
+ * as a missing asset. Each carries a `data-slot` so a real image can be
+ * dropped in without touching the composition.
  *
  * A print is paper first: the sheet is the object, the image is a window cut
  * into it. So the white border, its deckle or guillotined edge, and its contact
- * shadow all belong to the sheet, and the well is inset within it.
+ * shadow all belong to the sheet, and the well is inset within it — a
+ * developed print sits inside that same well rather than replacing it, and
+ * still shows the sheen and the crop marks over its own surface.
  */
 
 type PhotoPrintProps = {
@@ -29,6 +31,10 @@ type PhotoPrintProps = {
   chin?: number
   border?: number
   className?: string
+  /** A developed print: same-origin image path. Omitted, the well stays bare. */
+  image?: string
+  /** Alt text for the developed print. Ignored while `image` is unset. */
+  alt?: string
 }
 
 export function PhotoPrint({
@@ -42,6 +48,8 @@ export function PhotoPrint({
   chin = 0,
   border = 9,
   className = '',
+  image,
+  alt = '',
 }: PhotoPrintProps) {
   const sheet = edge === 'deckle' ? deckleRect(w, h, 8.5, 1.25) : cutRect(w, h, 1.2, 0.6)
   const well = {
@@ -50,6 +58,7 @@ export function PhotoPrint({
     w: w - border * 2,
     h: h - border * 2 - chin,
   }
+  const clipId = `well-clip-${slot}`
 
   return (
     <div
@@ -66,8 +75,33 @@ export function PhotoPrint({
         <PaperShadow id={`shadow-${slot}`} dx={1.2} dy={2.4} blur={2.6} opacity={0.26} />
         <g filter={`url(#shadow-${slot})`}>
           <path d={sheet} fill={PAPER.print} />
-          <rect {...boxAttrs(well)} fill={PAPER.well} />
-          <rect {...boxAttrs(well)} fill="url(#hero-well-shade)" />
+          {image ? (
+            <>
+              <clipPath id={clipId}>
+                <rect {...boxAttrs(well)} />
+              </clipPath>
+              {/* The developed print. Processed into a duotone or a graded
+                  print before it ever reaches this component — see the
+                  session's processing scripts — so what lands here is a
+                  photograph printed in this book's own material, not a raw
+                  digital image laid on top of one. */}
+              <image
+                href={image}
+                x={well.x}
+                y={well.y}
+                width={well.w}
+                height={well.h}
+                preserveAspectRatio="xMidYMid slice"
+                clipPath={`url(#${clipId})`}
+              />
+              <rect {...boxAttrs(well)} fill="url(#hero-well-shade)" opacity={0.3} />
+            </>
+          ) : (
+            <>
+              <rect {...boxAttrs(well)} fill={PAPER.well} />
+              <rect {...boxAttrs(well)} fill="url(#hero-well-shade)" />
+            </>
+          )}
           <rect
             {...boxAttrs(well)}
             fill="none"
@@ -79,7 +113,7 @@ export function PhotoPrint({
         </g>
       </svg>
       <span className="sr-only" data-slot={slot}>
-        Photograph placeholder
+        {image ? alt : 'Photograph placeholder'}
       </span>
     </div>
   )
