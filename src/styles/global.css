@@ -1,0 +1,52 @@
+@import 'tailwindcss';
+
+@theme {
+  /* The room the notebook sits in. Warm, never pure #fff — a white object on
+     pure white has nothing to be white against. */
+  --color-studio-base: #f6f4ee;
+  --color-studio-lit: #fbf9f5;
+  --color-studio-shade: #eeebe3;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-studio-base);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* ---------------------------------------------------------------- studio --
+   One soft source from the upper left, and nothing else. The environment is
+   here to give the object somewhere to sit, not to be looked at. */
+
+.studio {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 100dvh;
+  padding: 5vmin 4vmin;
+  overflow: hidden;
+  background: radial-gradient(
+    118% 88% at 33% 20%,
+    var(--color-studio-lit) 0%,
+    var(--color-studio-base) 44%,
+    var(--color-studio-shade) 100%
+  );
+}
+
+/* Just enough tooth to stop the gradient banding. */
+.studio::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity: 0.03;
+  mix-blend-mode: multiply;
+  pointer-events: none;
+}
