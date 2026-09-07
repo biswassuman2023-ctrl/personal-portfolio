@@ -1,12 +1,43 @@
 /* ---------------------------------------------------------------- stage --
    The notebook keeps its measured 1277:748 proportion at every size. Width is
    the driver; the dvh cap stops it outgrowing short viewports. It is never
-   stretched to fit. */
+   stretched to fit.
 
+   The three caps only ever come apart at extremes — a very short viewport
+   (dvh binds first), a very wide one (the px ceiling binds), everything
+   ordinary sits on the vw share. Raised together so the object reads as the
+   dominant thing in the room rather than an item floating in a much bigger
+   frame: at a typical 1712x946 window this used to render at 1163px wide
+   (68% of the viewport, and that was the dvh cap talking, not the vw share)
+   — now it renders close to the width share directly. The old 1277px ceiling
+   was the notebook's own native unit count in pixels, i.e. one CSS pixel per
+   drawn unit; there is no technical reason to stop there, everything on the
+   page is vector or a captured texture sized off the device's own pixel
+   ratio rather than off this box.
+
+   The height cap is 100dvh MINUS what else has to fit in that dvh alongside
+   it — the chrome's clearance above (.stage__sticky's own padding-top floor,
+   8.7rem), the printed credit below plus the gap to it, and a small bottom
+   margin. A flat "84dvh" ignored all of that: on an ordinary 1712x946 window
+   the notebook rendered at its full height-cap size with nothing held back
+   for the header or the credit, so the group (now taller than it used to be)
+   simply didn't fit in 100dvh — it overflowed symmetrically and the
+   notebook's own top edge ended up 25px ABOVE the chrome's bottom edge,
+   poking up into the header it is supposed to sit under.
+
+   14rem is not a calculation, it's a swept minimum: the reserved space
+   itself moves with viewport size (the credit's font-size and the group's
+   gap are both partly vw/vh-based), so there is no single constant that is
+   exactly correct everywhere. 14rem was chosen by rendering the page across
+   a width x height grid (1280–2560 wide, 700–1440 tall, 88 combinations) and
+   raising it until the worst case cleared the header at every one of them —
+   worst case is +8px at 1712x1080, nowhere negative. Re-sweep after changing
+   the header, the credit, or the gap between the notebook and the credit;
+   the number is only as good as the layout it was measured against. */
 .notebook-stage {
   position: relative;
-  width: min(76vw, 1277px);
-  max-width: calc(72dvh * 1.7072);
+  width: min(88vw, 1560px);
+  max-width: calc((100dvh - 14rem) * 1.7072);
   aspect-ratio: 1277 / 748;
   perspective: 2600px;
   perspective-origin: 50% 44%;

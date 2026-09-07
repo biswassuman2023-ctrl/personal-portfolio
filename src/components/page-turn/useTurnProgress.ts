@@ -18,15 +18,34 @@ import { gsap, ScrollTrigger } from '../../lib/gsap'
  * point in the motion can be inspected on its own rather than by guessing at
  * scroll offsets. `?turn=live` restores normal behaviour.
  */
+/**
+ * Where the turn is finished. The sheet has to stop being WebGL at this point
+ * and become the notebook's own page again — see `landed` below.
+ */
+const LANDED = 0.999
+
 export function useTurnProgress(target: React.RefObject<HTMLElement | null>) {
   const progress = useRef(0)
   const [active, setActive] = useState(false)
+  /**
+   * The turn is over and the DOM has the page back.
+   *
+   * Without this the mesh never hands off: `active` stayed true at progress 1,
+   * so a textured sheet sat over a DOM page that still had its own ink
+   * underneath, for as long as the user stayed there. No amount of material
+   * matching fixes that — two surfaces in almost the same place read as two
+   * surfaces. At the end of the turn the WebGL layer goes away entirely and
+   * the notebook renders the landed spread itself, which is sharp because it
+   * is live DOM rather than a photograph of it.
+   */
+  const [landed, setLanded] = useState(false)
 
   useEffect(() => {
     const pinned = readPinnedProgress()
     if (pinned !== null) {
       progress.current = pinned
-      setActive(pinned > 0.0005)
+      setActive(pinned > 0.0005 && pinned < LANDED)
+      setLanded(pinned >= LANDED)
       return
     }
 
@@ -45,8 +64,10 @@ export function useTurnProgress(target: React.RefObject<HTMLElement | null>) {
         ease: 'none',
         onUpdate: () => {
           progress.current = state.value
-          const isActive = state.value > 0.0005
+          const isLanded = state.value >= LANDED
+          const isActive = state.value > 0.0005 && !isLanded
           setActive((was) => (was === isActive ? was : isActive))
+          setLanded((was) => (was === isLanded ? was : isLanded))
         },
       }),
     })
@@ -56,7 +77,7 @@ export function useTurnProgress(target: React.RefObject<HTMLElement | null>) {
     }
   }, [target])
 
-  return { progress, active }
+  return { progress, active, landed }
 }
 
 function readPinnedProgress(): number | null {

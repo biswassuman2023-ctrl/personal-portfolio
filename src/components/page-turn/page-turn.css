@@ -9,11 +9,16 @@
   z-index: 3;
   pointer-events: none;
   overflow: visible;
-  /* Crossfades in over the first sliver of the turn. The mesh and the DOM page
-     it replaces are not pixel-identical, so a hard swap pops; a short fade
-     across a few percent of progress hides the handover. */
+  /* No crossfade. There used to be a 140ms one, on the reasoning that the mesh
+     and the DOM page were not pixel-identical so a hard swap would pop — but a
+     fade between two surfaces that do not match is worse than the mismatch: for
+     140ms BOTH are on screen, semi-transparent, slightly out of register, which
+     is ghosting and reads as two sheets of paper rather than one. The fix was
+     to make the two states identical instead of blending them. At progress 0
+     the mesh samples the lit capture of the page it covers and measures
+     identical to it; at the end the mesh is gone and the notebook has the page
+     back. There is nothing left for a fade to hide. */
   opacity: 0;
-  transition: opacity 140ms linear;
 }
 
 .page-turn.is-active {

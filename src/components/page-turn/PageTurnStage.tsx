@@ -40,8 +40,26 @@ export function PageTurnStage({ progressRef, capture, active }: Props) {
   return (
     <div className={`page-turn ${active ? 'is-active' : ''}`} aria-hidden="true">
       <Canvas
+        /*
+          Bounded at 2x, not matched to the capture's full density.
+
+          That was tried at the capture's own ratio (up to 3x) on the reasoning
+          that one texel under one rendered pixel is what makes the sheet as
+          sharp as the texture holds. It is, in a static screenshot — but it
+          means rasterising and shading several million extra pixels every
+          frame, continuously, for as long as a sheet is in the air, and a
+          custom fragment shader (two texture samples, anisotropic filtering,
+          per-page lighting) is not free. On a screen the swiftshader renders
+          used for testing never reproduce, that cost reads as the page falling
+          behind the finger on a real scroll — dropped frames blur a moving
+          image far worse than an under-sharp mip level ever did.
+
+          Capped at 2x, the remaining gap between the capture's density and
+          what's actually rendered is closed by `uLodBias` in the shader
+          instead — a cheap per-fragment mip choice, not a render-target size.
+        */
         dpr={[1, 2]}
-        gl={{ alpha: true, antialias: true }}
+        gl={{ alpha: true, antialias: false }}
         /*
           A TIGHT depth range around the object, not a generous one. With
           near 1 / far 7800 and the camera 2600 away, the depth buffer cannot

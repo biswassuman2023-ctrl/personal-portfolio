@@ -1,6 +1,6 @@
 import type React from 'react'
-import { useMemo, useRef } from 'react'
-import { useFrame } from '@react-three/fiber'
+import { useEffect, useMemo, useRef } from 'react'
+import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { FRAME, GUTTER, LEFT_PAGE, RIGHT_PAGE, type Box } from '../notebook/geometry'
 import type { SpreadCapture } from './useSpreadCapture'
@@ -56,14 +56,29 @@ const OUTER_TO = GUTTER.center - LEFT_PAGE.x
 const EDGE_TINT = 0.955
 
 /**
- * The binding shadow carried by the sheet's unlit back face, fitted to the
- * notebook's own gutter rather than chosen: sampled across the left page, the
- * paper runs 207 hard against the rings, 231 only twenty units further out,
- * and is not fully back to 247 until a third of the way across. Two bands,
- * because one ramp cannot be both that abrupt and that long.
+ * The destination page's lighting, fitted to the notebook's own measured
+ * profile — the real page divided by the material the mesh samples, sampled
+ * across ring-free rows so the metal does not contaminate the paper.
+ *
+ * GUTTER is an exponential, not a ramp: the paper is down to 0.875 only a
+ * twentieth of the way out of the binding and is back to 0.996 by a third,
+ * which no smoothstep holds at both ends. SHEEN is the part an earlier pass
+ * could not reach at all — the open field sits about 1.6% ABOVE the bare
+ * paper, so a shader with only darkening terms leaves the whole sheet
+ * uniformly under the page it lands on.
  */
-const GUTTER_DEPTH = new THREE.Vector2(0.66, 0.9)
-const GUTTER_WIDTH = new THREE.Vector2(0.075, 0.4)
+const BACK_CURVE = new THREE.Vector4(0.57, 0.0626, 1.0, 0)
+const BACK_SHEEN = 0.031
+
+/**
+ * ...and the page it is leaving, which is lit the other way about. Measured the
+ * same way, the right page peaks around a third of the way out and declines to
+ * 0.944 at its outer edge, where the left page climbs to 1.016 — the light is
+ * upper-left, so each page's far edge does the opposite thing. Reusing one
+ * curve for both left the front face flat where the real page has a gradient.
+ */
+const FRONT_CURVE = new THREE.Vector4(0.67, 0.0742, 1.0047, -0.0787)
+const FRONT_SHEEN = 0
 
 /** Shading of a page lying flat, so a resting sheet shades by exactly 1.0. */
 const REST_DOT = new THREE.Vector3(0, 0, 1).dot(LIGHT.clone().normalize()) * 0.5 + 0.5
@@ -77,6 +92,39 @@ type Props = {
 }
 
 export function TurningPage({ progressRef, capture }: Props) {
+  /**
+   * Anisotropic filtering, at whatever the GPU will actually give us.
+   *
+   * This is the single biggest thing standing between a moving sheet and a
+   * sharp one. A turning page is foreshortened — heavily so through the middle
+   * of the turn — which means it is minified hard along one axis and barely at
+   * all along the other. Trilinear filtering has one mip level to choose for
+   * both, so it picks for the squashed axis and blurs the sharp one, and the
+   * paper goes soft precisely while it is moving. Anisotropy is the mechanism
+   * that samples the two axes at different rates; capping it at a hardcoded 8
+   * was leaving quality on the table on every GPU that offers 16.
+   */
+  const gl = useThree((s) => s.gl)
+
+  /**
+   * How far to bias the mip fetch: exactly the ratio between the texture's
+   * density and the screen's, so a flat sheet reads the full-resolution level
+   * instead of a blended half-size one. Clamped, because a bias deeper than
+   * the oversampling would alias rather than sharpen.
+   */
+  const lodBias = useMemo(
+    () => THREE.MathUtils.clamp(-Math.log2(capture.pixelRatio / gl.getPixelRatio()), -2, 0),
+    [capture.pixelRatio, gl],
+  )
+  useEffect(() => {
+    const max = gl.capabilities.getMaxAnisotropy()
+    for (const texture of [capture.content, capture.blank]) {
+      if (texture.anisotropy === max) continue
+      texture.anisotropy = max
+      texture.needsUpdate = true
+    }
+  }, [gl, capture])
+
   const faceRef = useRef<THREE.ShaderMaterial>(null)
   const edgeRef = useRef<THREE.ShaderMaterial>(null)
   const shadowRef = useRef<THREE.ShaderMaterial>(null)
@@ -128,10 +176,12 @@ export function TurningPage({ progressRef, capture }: Props) {
       uShadeFloor: { value: SHADE_FLOOR },
       uEdgeTint: { value: 1 },
       uShowInk: { value: 1 },
-      uGutterDepth: { value: GUTTER_DEPTH },
-      uGutterWidth: { value: GUTTER_WIDTH },
+      uLodBias: { value: lodBias },
+      uFrontCurve: { value: FRONT_CURVE },
+      uBackCurve: { value: BACK_CURVE },
+      uSheens: { value: new THREE.Vector2(FRONT_SHEEN, BACK_SHEEN) },
     }),
-    [shape, capture, inkRect, paperRect],
+    [shape, capture, inkRect, paperRect, lodBias],
   )
 
   const edgeUniforms = useMemo(
@@ -148,10 +198,12 @@ export function TurningPage({ progressRef, capture }: Props) {
       uShadeFloor: { value: SHADE_FLOOR },
       uEdgeTint: { value: EDGE_TINT },
       uShowInk: { value: 0 },
-      uGutterDepth: { value: GUTTER_DEPTH },
-      uGutterWidth: { value: GUTTER_WIDTH },
+      uLodBias: { value: lodBias },
+      uFrontCurve: { value: FRONT_CURVE },
+      uBackCurve: { value: BACK_CURVE },
+      uSheens: { value: new THREE.Vector2(FRONT_SHEEN, BACK_SHEEN) },
     }),
-    [shape, capture, inkRect, paperRect],
+    [shape, capture, inkRect, paperRect, lodBias],
   )
 
   const shadowUniforms = useMemo(

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { toCanvas } from 'html-to-image'
+import { captureFontCSS } from './captureFonts'
 import * as THREE from 'three'
 
 /**
@@ -26,6 +27,18 @@ import * as THREE from 'three'
  * while the page is moving.
  */
 
+/**
+ * How much denser than CSS pixels the capture is taken.
+ *
+ * The notebook is ~1160 CSS px wide, so on a 2x display it is ~2320 real
+ * pixels of paper. Capturing at the old `devicePixelRatio * 1.5` gave 1.5x on
+ * an ordinary display — BELOW the density the page is shown at, which is
+ * enlarging a texture across the sheet and is exactly the blur the eye picks
+ * up while it moves. Twice the device's own ratio puts a comfortable margin
+ * over it at every density, and the cap keeps the two textures inside sane
+ * memory (at 3x the pair is ~1.4k x 0.8k CSS at 4 bytes, mipmaps included).
+ */
+const CAPTURE_DENSITY = 2
 const MAX_PIXEL_RATIO = 3
 
 /**
@@ -49,6 +62,8 @@ export type SpreadCapture = {
   content: THREE.Texture
   /** The same notebook, ink hidden: the back of the sheet and its edge. */
   blank: THREE.Texture
+  /** Texture pixels per CSS pixel, so the shader can undo the oversampling. */
+  pixelRatio: number
 }
 
 export function useSpreadCapture(target: HTMLElement | null, enabled: boolean) {
@@ -60,18 +75,35 @@ export function useSpreadCapture(target: HTMLElement | null, enabled: boolean) {
     let cancelled = false
     const made: THREE.Texture[] = []
 
-    const shoot = async (mode: 'content' | 'blank') => {
+    const shoot = async (mode: 'content' | 'blank', fontCSS: string) => {
       target.setAttribute('data-capturing', mode)
-      const shading =
-        mode === 'blank' ? Array.from(target.querySelectorAll<SVGGElement>(SHADING)) : []
+      // BOTH passes: neither face may carry baked lighting. The front used to
+      // keep it, on the assumption the serialiser reproduced the page it was
+      // photographing — it does not. Measured against the live page, the
+      // captured right page came back nearly flat (~228 across) where the real
+      // one runs 199 at the binding to 242 mid-page, so the sheet changed tone
+      // the instant a turn began. Lighting is the shader's job on both sides.
+      const shading = Array.from(target.querySelectorAll<SVGGElement>(SHADING))
       for (const g of shading) g.setAttribute('display', 'none')
       try {
-        const pixelRatio = Math.min(window.devicePixelRatio * 1.5, MAX_PIXEL_RATIO)
-        const canvas = await toCanvas(target, { pixelRatio, backgroundColor: undefined })
+        const pixelRatio = Math.min(
+          Math.max(window.devicePixelRatio, 1) * CAPTURE_DENSITY,
+          MAX_PIXEL_RATIO,
+        )
+        density = pixelRatio
+        const canvas = await toCanvas(target, {
+          pixelRatio,
+          backgroundColor: undefined,
+          // Explicit, because letting the library find the fonts itself lost
+          // one of them silently. See captureFonts.ts.
+          fontEmbedCSS: fontCSS,
+        })
         const texture = new THREE.CanvasTexture(canvas)
         texture.colorSpace = THREE.SRGBColorSpace
         texture.minFilter = THREE.LinearMipmapLinearFilter
         texture.magFilter = THREE.LinearFilter
+        // Raised to the GPU's maximum once the renderer is known; see
+        // TurningPage. 8 is a guess, and the guess is what goes soft.
         texture.anisotropy = 8
         texture.needsUpdate = true
         made.push(texture)
@@ -82,6 +114,8 @@ export function useSpreadCapture(target: HTMLElement | null, enabled: boolean) {
       }
     }
 
+    let density = 1
+
     const run = async () => {
       // Webfonts must resolve first, or the capture bakes in the fallbacks.
       await document.fonts.ready
@@ -89,11 +123,13 @@ export function useSpreadCapture(target: HTMLElement | null, enabled: boolean) {
       if (cancelled) return
 
       try {
-        const content = await shoot('content')
+        const fontCSS = await captureFontCSS()
         if (cancelled) return
-        const blank = await shoot('blank')
+        const content = await shoot('content', fontCSS)
         if (cancelled) return
-        setCapture({ content, blank })
+        const blank = await shoot('blank', fontCSS)
+        if (cancelled) return
+        setCapture({ content, blank, pixelRatio: density })
       } catch {
         // A failed capture must not take the page down: the turn stays disabled
         // and the spread keeps rendering as live DOM.

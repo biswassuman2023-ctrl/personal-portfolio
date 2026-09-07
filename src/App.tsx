@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Credit } from './components/chrome/Credit'
 import { TopChrome } from './components/chrome/TopChrome'
 import { HeroDefs } from './components/hero/HeroDefs'
 import { HeroLeftPage } from './components/hero/HeroLeftPage'
@@ -31,7 +32,7 @@ export default function App() {
      assigning a ref does not re-render, so a ref here never reaches the hook. */
   const [objectNode, setObjectNode] = useState<HTMLDivElement | null>(null)
 
-  const { progress, active } = useTurnProgress(stageRef)
+  const { progress, active, landed } = useTurnProgress(stageRef)
   const capture = useSpreadCapture(objectNode, true)
 
   useEffect(() => startSmoothScroll(), [])
@@ -42,16 +43,31 @@ export default function App() {
 
       <div className="stage" ref={stageRef}>
         <div className="stage__sticky">
-          <div className="stage__object" ref={setObjectNode}>
-            <HeroDefs />
-            <Notebook
-              leftPage={<HeroLeftPage />}
-              rightPage={<HeroRightPage />}
-              turningSide={active ? 'right' : null}
-            />
-            {capture ? (
-              <PageTurnStage progressRef={progress} capture={capture} active={active} />
-            ) : null}
+          {/* The notebook and its printed credit, centered as one group —
+              see the comment on .stage__sticky in global.css. */}
+          <div className="stage__group">
+            <div className="stage__object" ref={setObjectNode}>
+              <HeroDefs />
+              {/*
+                Three states, one spread. At rest the notebook draws itself. While
+                a sheet is in the air its ink moves to the mesh. When the turn
+                finishes the mesh goes away and the notebook draws the spread the
+                sheet landed on — the back of the turned leaf on the left, the
+                next page on the right, both of them blank for now. The last frame
+                of a turn is therefore live DOM, not a texture: nothing to fade,
+                nothing sitting on top of anything.
+              */}
+              <Notebook
+                leftPage={<HeroLeftPage />}
+                rightPage={<HeroRightPage />}
+                turningSide={active ? 'right' : null}
+                landed={landed}
+              />
+              {capture ? (
+                <PageTurnStage progressRef={progress} capture={capture} active={active} />
+              ) : null}
+            </div>
+            <Credit />
           </div>
         </div>
       </div>

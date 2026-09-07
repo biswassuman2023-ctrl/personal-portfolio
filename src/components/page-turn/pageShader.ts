@@ -96,7 +96,15 @@ export const pageVertexShader = /* glsl */ `
     // lands in FRONT, and the page reads as the cut edge's tone instead of its
     // own paper. Flipping with the normal keeps it behind for the whole turn.
     float behind = sheet.normal.z >= 0.0 ? 1.0 : -1.0;
-    vec3 q = sheet.pos + sheet.normal * (uOffset * behind);
+
+    // Thickness belongs to a sheet in the air. Lying down at either end it is
+    // one leaf inside a block of them, and a 2.6-unit lip standing proud of
+    // the page it has landed on is precisely the "card resting on card" tell —
+    // the eye reads the rim, not the paper. Scaling by the same bow the bend
+    // uses retires it exactly when the sheet goes flat, at both ends, without
+    // touching the motion in between.
+    float bow = sin(uProgress * PI);
+    vec3 q = sheet.pos + sheet.normal * (uOffset * behind * bow);
 
     vNormal = normalize(normalMatrix * sheet.normal);
     gl_Position = projectionMatrix * modelViewMatrix * vec4(q, 1.0);
@@ -124,52 +132,80 @@ export const pageFragmentShader = /* glsl */ `
   uniform sampler2D uInk;      // the spread, with its content
   uniform sampler2D uPaper;    // the same notebook, ink hidden
   uniform vec4 uInkRect;       // xy = origin, zw = size, in atlas UV
-  uniform vec4 uPaperRect;     // the destination page, in the same atlas space
+  uniform vec4 uPaperRect;     // the ink-free paper to read, in that same space
   uniform vec3 uLight;
   uniform float uRestDot;      // the shading term of a page lying flat
   uniform float uShadeDepth;
   uniform float uShadeFloor;
   uniform float uEdgeTint;     // 1 for a face, slightly under for the cut edge
   uniform float uShowInk;      // 0 for the edge, which is paper on both sides
-  uniform vec2 uGutterDepth;   // how dark the paper goes at the rings: near, far
-  uniform vec2 uGutterWidth;   // ...and how far out of the binding each reaches
+  /**
+   * Mip bias, by however much the texture out-resolves the frame being drawn.
+   *
+   * The capture is deliberately denser than the screen, and mipmapping will
+   * quietly throw that away: sampling a 2x texture into a 1x frame lands on
+   * mip level 1 — a half-resolution copy — which is blurrier than plain
+   * bilinear on the full-size image. That was measurable, at edge acutance
+   * 55.9 against the live page's 76.3.
+   *
+   * The renderer is deliberately capped at 2x rather than matched to the
+   * capture's own density (up to 3x) — rendering several million extra pixels
+   * every frame for as long as a sheet is airborne cost more than it bought,
+   * and on real hardware read as dropped frames, which blur a moving image
+   * far worse than an under-sharp mip level does. This bias is what recovers
+   * the gap instead: a per-fragment mip choice costs nothing extra to render,
+   * where a bigger render target costs the whole frame.
+   */
+  uniform float uLodBias;
+  // A page's lighting as (fall out of the binding) x (how the room crosses it).
+  // xy = amount and scale of the binding fall, z = overall level, w = linear
+  // tilt across the page. The sheens are separate because only one page has one.
+  uniform vec4 uFrontCurve;    // the page the sheet is leaving
+  uniform vec4 uBackCurve;     // the page it is landing on
+  uniform vec2 uSheens;        // front, back
+
+  float pageLight(float u, vec4 c, float sheen) {
+    float fall = 1.0 - c.x * exp(-u / c.y);
+    return fall * (c.z + c.w * u + sheen * smoothstep(0.30, 0.95, u));
+  }
 
   varying vec2 vUv;
   varying vec3 vNormal;
 
   void main() {
     vec3 base;
+    bool front = uShowInk > 0.5 && gl_FrontFacing;
 
-    if (uShowInk > 0.5 && gl_FrontFacing) {
-      base = texture2D(uInk, uInkRect.xy + vUv * uInkRect.zw).rgb;
+    if (front) {
+      base = texture2D(uInk, uInkRect.xy + vUv * uInkRect.zw, uLodBias).rgb;
     } else {
       // Same region as the front, from the ink-free capture: this is the same
       // sheet, seen from behind. Sampled in the same direction so the shading
       // that belongs at the gutter stays at the gutter once the sheet lands.
-      base = texture2D(uPaper, uPaperRect.xy + vUv * uPaperRect.zw).rgb * uEdgeTint;
-
-      // The binding shadow. The paper capture is deliberately unlit, so the
-      // back of the sheet arrives with no record of the light the rings keep
-      // off it — it landed flat at 248 where the page beneath it reads 207,
-      // and a page that does not darken into its own binding reads as a
-      // cutout laid on top rather than a sheet bound into the book.
-      //
-      // The front face needs nothing here: it samples the lit capture, which
-      // carries this same shadow already baked at the same edge.
-      //
-      // uv.x is 0 at the bound edge for the whole turn, so this is a property
-      // of the sheet's own geometry rather than of whichever page it is over,
-      // and it is right at both ends of the turn without being animated.
-      // Fitted to the notebook's own gutter, sampled across the left page,
-      // which turns out to be TWO overlapping falls rather than one: a narrow
-      // hard band in the last ~20 units before the rings (207 against 231 only
-      // 20 units further out) sitting inside a much wider, gentler one that is
-      // not fully recovered until a third of the way across (244 at 480).
-      // A single ramp can be one or the other and was visibly neither.
-      float bandNear = mix(uGutterDepth.x, 1.0, smoothstep(0.0, uGutterWidth.x, vUv.x));
-      float bandFar = mix(uGutterDepth.y, 1.0, smoothstep(0.0, uGutterWidth.y, vUv.x));
-      base *= bandNear * bandFar;
+      base = texture2D(uPaper, uPaperRect.xy + vUv * uPaperRect.zw, uLodBias).rgb * uEdgeTint;
     }
+
+    // THE PAGE'S OWN LIGHTING, measured rather than invented.
+    //
+    // Neither capture carries lighting any more, so both faces get it here —
+    // and they get DIFFERENT lighting, because the page the sheet leaves and
+    // the page it lands on are not lit alike. Dividing each real page by the
+    // material gives the two curves:
+    //
+    //   u:      0.05   0.14   0.37   0.56   0.75   0.98
+    //   front:  0.80   0.935  0.976  0.964  0.956  0.944   (falls outward)
+    //   back:   0.875  0.96   0.996  1.005  1.012  1.016   (rises outward)
+    //
+    // Both dive at the binding; past that they go opposite ways, because the
+    // light is upper-LEFT, so the left page's outer edge is its brightest part
+    // and the right page's outer edge is its dimmest. One shared curve cannot
+    // be both, and using the front's on the back is a visible 2% step across
+    // the whole sheet — which reads as a second piece of paper, not as shading.
+    //
+    // The back also has to LIFT above the bare material (1.016). An earlier
+    // pass only had terms that darken and could never reach it.
+    base *= front ? pageLight(vUv.x, uFrontCurve, uSheens.x)
+                  : pageLight(vUv.x, uBackCurve, uSheens.y);
 
     vec3 n = normalize(vNormal);
     if (!gl_FrontFacing) n = -n;
@@ -220,7 +256,12 @@ export const shadowVertexShader = /* glsl */ `
     // page casts nothing — they are in contact — so tying the shadow to this
     // is both physically right and what makes the handoff clean: there is no
     // shadow to disappear at progress 0 or 1.
-    vAirborne = sin(uProgress * PI);
+    // sin() alone is still throwing a visible shadow at 0.9 (0.31 of full) and
+    // only reaches nothing exactly at 1.0, so the sheet floats right up to the
+    // last frame and the shadow snaps off. Settling it over the last stretch
+    // means contact is established BEFORE the landing, which is what selling
+    // "it came to rest" actually requires.
+    vAirborne = sin(uProgress * PI) * (1.0 - smoothstep(0.86, 1.0, uProgress));
 
     Sheet sheet = sheetAt(uv, position.y);
     vHeight = sheet.pos.z;

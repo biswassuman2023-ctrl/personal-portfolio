@@ -8,10 +8,12 @@
   inset: 0 0 auto;
   z-index: 20;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: clamp(1.5rem, 4vw, 4rem);
-  padding: clamp(1.1rem, 2.4vw, 2rem) clamp(1.4rem, 3.4vw, 3.2rem);
+  row-gap: 0.6rem;
+  column-gap: clamp(1.5rem, 4vw, 4rem);
+  padding: clamp(1.1rem, 2.6vw, 1.9rem) clamp(1.4rem, 3.4vw, 3.2rem);
   pointer-events: none;
 }
 
@@ -22,15 +24,27 @@
 
 .chrome__right {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: clamp(1.4rem, 3vw, 2.8rem);
+  justify-content: flex-end;
+  gap: clamp(1.6rem, 3.4vw, 3rem);
+  /* Wraps to its own row once the wordmark's masthead scale leaves no room
+     beside it — and on its own row, with nothing left to space against, a
+     flex child otherwise settles at the start rather than staying at the
+     edge it shares with the notebook below it. */
+  margin-inline-start: auto;
 }
 
-/* ----------------------------------------------------------- wordmark -- */
+/* -----------------------------------------------------------wordmark --
+   Masthead scale: a name that establishes the page before the notebook does,
+   not a navbar brand in the corner of it. Pagkaki ships one weight — there is
+   no bold to reach for, and synthesising one would be exactly the softness
+   rule 5 rules out — so the presence comes from size and the flat house blue,
+   never from font-weight. */
 
 .chrome__wordmark {
   font-family: var(--font-display);
-  font-size: clamp(1.5rem, 2.5vw, 2.35rem);
+  font-size: clamp(2.4rem, 5.4vw, 4.4rem);
   line-height: 1;
   letter-spacing: 0.005em;
   color: var(--color-ink-blue);
@@ -38,12 +52,17 @@
   white-space: nowrap;
 }
 
-/* ---------------------------------------------------------------- nav -- */
+/* ---------------------------------------------------------------- nav --
+   The same weight class as the wordmark, not a smaller register next to it.
+   Set in caps with room to breathe — composed spacing, not a flexbox default
+   spread evenly across whatever width is left. */
 
 .chrome__nav ul {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
-  gap: clamp(1rem, 2.2vw, 2.2rem);
+  justify-content: flex-end;
+  gap: clamp(1.5rem, 3.4vw, 3.1rem);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -52,18 +71,20 @@
 .chrome__nav a {
   display: inline-block;
   font-family: var(--font-display);
-  font-size: clamp(1rem, 1.35vw, 1.35rem);
+  font-size: clamp(1.15rem, 2vw, 1.7rem);
+  letter-spacing: 0.03em;
   line-height: 1;
   color: var(--color-ink-blue);
   text-decoration: none;
-  /* the hairline is drawn, not underlined, so it can be animated on its own */
-  border-bottom: 2px solid transparent;
-  padding-bottom: 0.18em;
-  transition: border-color 160ms ease, opacity 160ms ease;
+  transition: transform 200ms ease, opacity 200ms ease;
 }
 
+/* A small physical lift, the way a printed word tips up off the page rather
+   than a link acquiring an underline — the typography stays the interface,
+   nothing is drawn under it. */
 .chrome__nav a:hover {
-  border-bottom-color: currentColor;
+  transform: translateY(-0.12em) rotate(-0.6deg);
+  opacity: 0.72;
 }
 
 .chrome__nav a:focus-visible,
@@ -79,6 +100,36 @@
   }
 }
 
+/* --------------------------------------------------------------- credit --
+   The printed line under the notebook. Quiet on purpose: Schoolbell rather
+   than Pagkaki, the canvas ink rather than the house blue — this is a
+   signature, not a second piece of site chrome. */
+
+.stage__credit {
+  font-family: var(--font-hand);
+  font-size: clamp(1rem, 1.3vw, 1.2rem);
+  color: var(--color-canvas-ink);
+  text-decoration: none;
+  opacity: 0.82;
+  transition: opacity 200ms ease;
+}
+
+.stage__credit:hover {
+  opacity: 0.55;
+}
+
+.stage__credit:focus-visible {
+  outline: 2px solid var(--color-canvas-ink);
+  outline-offset: 4px;
+  border-radius: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stage__credit {
+    transition: none;
+  }
+}
+
 /* ------------------------------------------------------------- narrow -- */
 
 @media (max-width: 720px) {
@@ -86,8 +137,17 @@
     gap: 1rem;
   }
 
-  /* No hamburger. The four links wrap and shrink; they are four short words. */
+  /* No hamburger. The four links wrap and shrink; they are four short words —
+     still set well above a normal navbar's size, just given less room. */
   .chrome__nav ul {
-    gap: 0.85rem;
+    gap: 1rem;
+  }
+
+  .chrome__wordmark {
+    font-size: clamp(1.9rem, 9vw, 2.6rem);
+  }
+
+  .chrome__nav a {
+    font-size: clamp(0.95rem, 4vw, 1.15rem);
   }
 }

@@ -24,15 +24,17 @@ type NotebookProps = {
   leftPage?: ReactNode
   rightPage?: ReactNode
   turningSide?: "left" | "right" | null
+  /** The turn has completed: this spread is the one the sheet landed on. */
+  landed?: boolean
 }
 
-export function Notebook({ leftPage, rightPage, turningSide = null }: NotebookProps) {
+export function Notebook({ leftPage, rightPage, turningSide = null, landed = false }: NotebookProps) {
   return (
     <div className="notebook-stage">
       <MaterialDefs />
       <div className="notebook">
         <Cover />
-        <Pages left={leftPage} right={rightPage} turningSide={turningSide} />
+        <Pages left={leftPage} right={rightPage} turningSide={turningSide} landed={landed} />
         <Spine />
         <Rings />
         {/*

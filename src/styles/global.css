@@ -10,6 +10,14 @@
   /* The site interface, and the only colour outside the notebook's own
      leather, paper and metal. */
   --color-ink-blue: #2947da;
+
+  /* A second, quieter colour for the canvas: the small printed credit under
+     the notebook is not part of the site's own interface the way the chrome
+     is, so it does not reach for the house blue — a warm near-black instead,
+     the same tone the notebook's own ink uses on paper (hero/fonts.ts
+     PAPER.ink), so the two dark colours in the composition read as one
+     family rather than two unrelated blacks. */
+  --color-canvas-ink: #2a2620;
 }
 
 /* ----------------------------------------------------------------- type --
@@ -81,9 +89,18 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-PLACEHOLDER/* ---------------------------------------------------------------- studio --
+/* ---------------------------------------------------------------- studio --
    One soft source from the upper left, and nothing else. The environment is
-   here to give the object somewhere to sit, not to be looked at. */
+   here to give the object somewhere to sit, not to be looked at.
+
+   A stray "PLACEHOLDER" token used to sit right in front of this comment,
+   turning the whole rule into `PLACEHOLDER .studio { ... }` — a descendant
+   selector requiring an ancestor element that doesn't exist, so the gradient
+   below had never actually been painting. Computed style confirmed it:
+   `background: rgba(0,0,0,0) none ...`. The flat body background-color was
+   quietly standing in for it, which is exactly why the room read as "overly
+   clean/plain" rather than as a lit surface — there was no surface, only a
+   flat fill. */
 
 .studio {
   position: relative;
@@ -96,14 +113,44 @@ PLACEHOLDER/* ---------------------------------------------------------------- s
   background-attachment: fixed;
 }
 
-/* Just enough tooth to stop the gradient banding. */
+/*
+  Canvas texture, two layers stacked the same way the notebook's own
+  materials are built: a coarse, low-frequency tonal drift first (the way raw
+  paper or primed canvas is never perfectly even), a fine grain over it for
+  tooth. Both are desaturated to plain luminance noise before they reach the
+  page — feTurbulence is independently random per channel, and left alone
+  that reads as coloured static/confetti rather than a paper surface. Collapsed
+  to one shared tone and blended with `multiply`, they can only ever darken
+  slightly into the existing warm gradient, never grey it or add a hue of
+  their own.
+
+  One rect covers the whole viewport rather than a small tile repeated across
+  it, so there is no seam to spot on a wide screen.
+*/
+.studio::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1600' height='1000' viewBox='0 0 1600 1000'%3E%3Cfilter id='m'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.012' numOctaves='2' seed='11' result='n'/%3E%3CfeColorMatrix in='n' type='matrix' values='0.33 0.33 0.33 0 0 0.33 0.33 0.33 0 0 0.33 0.33 0.33 0 0 0 0 0 1 0' result='g'/%3E%3CfeComponentTransfer in='g'%3E%3CfeFuncR type='linear' slope='0.7' intercept='0.16'/%3E%3CfeFuncG type='linear' slope='0.7' intercept='0.16'/%3E%3CfeFuncB type='linear' slope='0.7' intercept='0.16'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23m)'/%3E%3C/svg%3E");
+  background-size: cover;
+  background-repeat: no-repeat;
+  background-position: center;
+  opacity: 0.09;
+  mix-blend-mode: multiply;
+  pointer-events: none;
+}
+
 .studio::after {
   content: '';
   position: fixed;
   inset: 0;
   z-index: 1;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1600' height='1000' viewBox='0 0 1600 1000'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.55' numOctaves='2' seed='4' result='n'/%3E%3CfeColorMatrix in='n' type='matrix' values='0.33 0.33 0.33 0 0 0.33 0.33 0.33 0 0 0.33 0.33 0.33 0 0 0 0 0 1 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: cover;
+  background-repeat: no-repeat;
+  background-position: center;
+  opacity: 0.045;
   mix-blend-mode: multiply;
   pointer-events: none;
 }
@@ -121,12 +168,54 @@ PLACEHOLDER/* ---------------------------------------------------------------- s
 .stage__sticky {
   position: sticky;
   top: 0;
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* centers the (notebook + credit) GROUP in the space left under the
+     chrome, rather than centering the notebook alone and leaving the credit
+     to float wherever the bottom padding happens to land it */
+  justify-content: center;
   height: 100dvh;
   /* Top padding clears the chrome. The nav must never sit against the
-     notebook's edge — they belong to different worlds. */
-  padding: clamp(4.75rem, 8.5vh, 6.5rem) 4vmin 4vmin;
+     notebook's edge — they belong to different worlds. The floor is set in
+     rem, not vh: the chrome's masthead-scale type is ~131px tall at desktop
+     regardless of viewport height, and a purely vh-based floor collapsed
+     below that on an ordinary 1366x720 laptop screen, overlapping the two.
+     8.7rem clears it with a small margin. vh is deliberately small now — it
+     used to add up to a further 10.5rem of pure air on tall screens, which
+     is exactly the "small header, huge gap, small notebook" feeling this
+     pass exists to remove; the object being much larger now already claims
+     most of that space on its own. */
+  padding: clamp(8.7rem, 10vh, 9.5rem) 4vmin 3vmin;
+}
+
+/* Below 720px the chrome itself is shorter — smaller type, and it wraps to
+   two rows (wordmark, then nav+player) instead of sitting on one — so the
+   desktop floor above is more clearance than the mobile chrome needs and
+   was pushing the notebook a further two hundred pixels down the screen. */
+@media (max-width: 720px) {
+  .stage__sticky {
+    padding-top: clamp(7rem, 20vh, 9rem);
+    /* Below this width the notebook's own aspect ratio (1277:748, wider than
+       it is tall) makes it short relative to a portrait screen — at 94vw
+       wide on a 390-wide phone it is barely 220px tall against an 844px-tall
+       viewport. Centering that within the full height splits several hundred
+       spare pixels evenly above and below it, which read as the exact "large
+       empty background" this pass exists to remove. Top-aligned instead, the
+       gap left above is only ever the header's own clearance, and anything
+       spare falls below the credit where scrolling reveals it rather than
+       the first screen being half air. */
+    justify-content: flex-start;
+  }
+}
+
+/* The notebook and its printed credit, as one group — see the comment on
+   `.stage__sticky` above for why they are centered together. */
+.stage__group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(0.9rem, 2.2vh, 1.6rem);
 }
 
 /* Wraps the notebook and the hero's shared SVG defs in one box, so the page

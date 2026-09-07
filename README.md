@@ -153,7 +153,7 @@ anywhere yet.
 turning sheet has to be a texture — and a texture is never quite as crisp as
 the real thing. So the spread renders as live DOM until a page actually moves,
 and the textured mesh is only on screen while it is moving, which is the one
-time nobody can tell. `.page-turn` crossfades over ~140ms to hide the handover.
+time nobody can tell. There is no crossfade — see the landing section below.
 
 **The sheet is bent, then swung.** `pageShader.ts`: a sheet of length L bent
 through angle K lies on a circle of radius R = L/K, so a point at fraction u
@@ -290,3 +290,123 @@ notebook units. Sampling raw screen pixels without converting cost one wrong
 conclusion — a region I read as "the outer left page" was notebook x 61–105,
 i.e. the cover, and the +27 it reported was a page/cover boundary rather than
 paper.
+
+## Phase 03 — the landing, the handoff, and sharpness
+
+Three complaints — the sheet floats above the page it lands on, the paper goes
+soft while it moves, and you can see the handover — turned out to have five
+causes between them. None was the page-turn maths, which is untouched.
+
+### The turn never actually ended
+
+`active` was `progress > 0.0005`, which is still true at progress 1. So the
+mesh never handed anything back: a textured sheet sat over a DOM page that
+still had its own hero ink underneath it, indefinitely. That is the "card
+resting on card" look, and no amount of material matching can fix it, because
+there really were two surfaces.
+
+There is now a third state. `useTurnProgress` reports `landed` past 0.999, the
+WebGL layer stops painting, and the notebook draws the spread the sheet landed
+on — the back of the turned leaf on the left, the uncovered page on the right,
+both blank. **The final frame is live DOM**, so it is sharp by construction and
+there is nothing on top of anything.
+
+### The crossfade was making it worse
+
+A 140ms fade existed because the two representations did not match. But fading
+between two surfaces that disagree puts BOTH on screen, semi-transparent and
+slightly out of register, for 140ms — which is ghosting, and reads as two
+sheets. It is gone. The fix was to make the states identical instead of
+blending them.
+
+### Neither capture could carry lighting
+
+The captures used to keep the page's sheen, falloff and gutter gradient baked
+in. The serialiser does not reproduce them: measured against the live page, the
+captured LEFT page was **92 levels dark at the middle of the page**, and the
+right page came back nearly flat (~228 across) where the real one runs 199 at
+the binding to 242 mid-page. So both faces now photograph **material only**,
+and lighting is reconstructed in the shader from the real page divided by that
+material:
+
+```
+u:      0.05   0.14   0.37   0.56   0.75   0.98
+front:  0.80   0.935  0.976  0.964  0.956  0.944   (falls outward)
+back:   0.875  0.96   0.996  1.005  1.012  1.016   (rises outward)
+```
+
+Two curves, not one. Both dive at the binding, then go opposite ways — the
+light is upper-left, so the left page's outer edge is its brightest part and
+the right page's outer edge is its dimmest. The back also has to rise ABOVE the
+bare material (1.016); an earlier pass had only darkening terms and could never
+reach it, which left the whole sheet uniformly ~2% under the page it landed on.
+A uniform 2% offset across a whole surface is exactly what reads as a second
+piece of paper rather than as shading.
+
+The fall out of the binding is an exponential, not a ramp: down to 0.875 a
+twentieth of the way out and back to 0.996 by a third. Smoothstep cannot hold
+that shape and fitting one end always lost the other.
+
+### One font was silently missing from the texture
+
+html-to-image embeds fonts by scraping the stylesheets, and on this project it
+got three of the four and dropped Cormorant Garamond — with no error. `folio`
+rendered in the next stack entry, Georgia italic: a serif italic of roughly the
+right colour and **19.5% wider**. So the biggest word on the spread jumped
+sideways the instant a turn began.
+
+What identified it: `Port` (Bodoni Moda) matched the live page to within four
+units and a non-text control matched exactly, while `folio` was 514 units wide
+against 430. Only one face, so not a projection problem. `captureFonts.ts` now
+builds the `@font-face` CSS explicitly and passes it as `fontEmbedCSS`. **Keep
+it in step with `global.css`.**
+
+### Thickness and shadow have to retire before the landing
+
+The sheet's 2.6-unit edge stood proud of the page it landed on — the eye reads
+that rim, not the paper. It is now scaled by the same bow the bend uses, so it
+is gone whenever the sheet is flat, at both ends.
+
+The shadow faded as `sin(progress·π)`, which is still 0.31 at progress 0.9 and
+only reaches zero exactly at 1.0 — so the sheet floated to the last frame and
+the shadow snapped off. It now settles over the last stretch, so contact is
+established *before* the landing.
+
+Separately, the thickness offset was pushing the edge along the sheet's normal,
+which points at the viewer for the first half of the turn and away for the
+second — so past 90° the cut edge landed in FRONT of the face and the page
+showed the edge's tone. It now flips with the normal.
+
+### Sharpness
+
+The capture is denser than the screen (twice the device ratio, capped at 3).
+That was being thrown away: mipmapping sampled a 2x texture into a 1x frame,
+landing on mip level 1 — a half-resolution copy, blurrier than plain bilinear
+on the full-size image. Measured at edge acutance 55.9 against the live page's
+76.3. The renderer now draws at the **texture's** density rather than the
+screen's, so one texel sits under one rendered pixel and the browser
+downsamples the oversized canvas on the way out. `uLodBias` remains as a guard
+for the case where the two densities are clamped apart.
+
+### Where it ended up
+
+Paper tone against the real DOM page, ink excluded, ring-free rows:
+
+| progress | 0.5 | 0.75 | 0.9 | 0.95 | 0.99 | 1 |
+| --- | --- | --- | --- | --- | --- | --- |
+| worst delta | 56 | 31 | 5 | 3 | 3 | 0 |
+
+Frame to frame over the landing: 0.9→0.95 is 3 levels, 0.95→0.99 is 2, 0.99→1
+is 3. Entry (DOM→mesh) is within 4 levels on paper, landing within 3. No paper
+pixel drops below 226 at any point in the turn, so there is no black or grey
+anywhere in the pipeline. The larger numbers at 0.5 and 0.75 are the
+half-Lambert on a sheet standing up out of the light — illumination changing,
+not the material.
+
+**Measuring any of this needs the DOM/screen mapping.** `.notebook-stage` is
+not the frame: at a 1712-wide viewport it sits at x 275, width 1163, for 1277
+notebook units. Sampling raw screen pixels without converting cost one wrong
+conclusion — a region read as "the outer left page" was notebook x 61–105, the
+cover. Sample paper tone as a percentile down a column (ink skews a mean) and
+avoid the ring rows at y 129/194/260/471/537/603, whose bright metal skews it
+the other way.
