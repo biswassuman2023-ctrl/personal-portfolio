@@ -1,0 +1,64 @@
+/* ----------------------------------------------------------- page turn --
+   The WebGL layer sits exactly over the notebook stage and is transparent
+   everywhere the sheet is not, so the DOM notebook shows through it. It only
+   carries pixels while a page is actually in the air. */
+
+.page-turn {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  overflow: visible;
+  /* Crossfades in over the first sliver of the turn. The mesh and the DOM page
+     it replaces are not pixel-identical, so a hard swap pops; a short fade
+     across a few percent of progress hides the handover. */
+  opacity: 0;
+  transition: opacity 140ms linear;
+}
+
+.page-turn.is-active {
+  opacity: 1;
+}
+
+.page-turn canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* While a sheet is in the air, WebGL is drawing it — so its INK must not also
+   show through underneath. The paper stays: what is left behind is the next
+   spread's sheet, which is the same paper with nothing printed on it yet.
+   Hiding the page entirely would expose the cover, as though the book had lost
+   a leaf rather than turned one. */
+.notebook__page--turning .notebook__page-content {
+  visibility: hidden;
+}
+
+/* The capture must always photograph the FULL spread, whatever the turn is
+   doing at the time. Without this the ink is hidden first and the texture is
+   taken from an already-blank page, so the sheet turns over carrying nothing —
+   which happens for real any time the page is reloaded mid-scroll, not just
+   under the ?turn= debug flag. */
+[data-capturing] .notebook__page--turning .notebook__page-content {
+  visibility: visible;
+}
+
+/* The second capture: the same notebook with every page's ink hidden. This is
+   the source of truth for the BACK of a turning sheet, its cut edge, and any
+   page not yet written — so the paper on the moving sheet is literally a
+   photograph of the paper it lands on, rather than a colour chosen to look
+   like it. `!important` because the rule above deliberately forces the turning
+   page's ink visible, and is the more specific of the two. */
+[data-capturing='blank'] .notebook__page-content {
+  visibility: hidden !important;
+}
+
+/* Material only. The paper capture leaves the page's lighting out — the sheen,
+   the falloff and the gutter gradient are how the room falls on a resting page,
+   and a turning sheet is lit by the shader instead. Baked in, the gutter
+   gradient travels with the sheet as a hard grey band. */
+/* The lighting layer is switched off for the blank pass by useSpreadCapture,
+   which sets display="none" as an ATTRIBUTE. A rule here would apply in the
+   browser and be dropped by the capture's serialiser, which is not a failure
+   you can see — it just quietly bakes the gutter gradient into the paper. */

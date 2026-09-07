@@ -1,0 +1,93 @@
+/* ------------------------------------------------------------- chrome --
+   The website's interface, in the room the notebook is lying in. It keeps a
+   real margin off the object and owns no container of its own: no bar, no
+   background, no border. Whatever is behind it is the studio surface. */
+
+.chrome {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: clamp(1.5rem, 4vw, 4rem);
+  padding: clamp(1.1rem, 2.4vw, 2rem) clamp(1.4rem, 3.4vw, 3.2rem);
+  pointer-events: none;
+}
+
+.chrome > *,
+.chrome__right > * {
+  pointer-events: auto;
+}
+
+.chrome__right {
+  display: flex;
+  align-items: center;
+  gap: clamp(1.4rem, 3vw, 2.8rem);
+}
+
+/* ----------------------------------------------------------- wordmark -- */
+
+.chrome__wordmark {
+  font-family: var(--font-display);
+  font-size: clamp(1.5rem, 2.5vw, 2.35rem);
+  line-height: 1;
+  letter-spacing: 0.005em;
+  color: var(--color-ink-blue);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+/* ---------------------------------------------------------------- nav -- */
+
+.chrome__nav ul {
+  display: flex;
+  align-items: baseline;
+  gap: clamp(1rem, 2.2vw, 2.2rem);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chrome__nav a {
+  display: inline-block;
+  font-family: var(--font-display);
+  font-size: clamp(1rem, 1.35vw, 1.35rem);
+  line-height: 1;
+  color: var(--color-ink-blue);
+  text-decoration: none;
+  /* the hairline is drawn, not underlined, so it can be animated on its own */
+  border-bottom: 2px solid transparent;
+  padding-bottom: 0.18em;
+  transition: border-color 160ms ease, opacity 160ms ease;
+}
+
+.chrome__nav a:hover {
+  border-bottom-color: currentColor;
+}
+
+.chrome__nav a:focus-visible,
+.chrome__wordmark:focus-visible {
+  outline: 2px solid var(--color-ink-blue);
+  outline-offset: 4px;
+  border-radius: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chrome__nav a {
+    transition: none;
+  }
+}
+
+/* ------------------------------------------------------------- narrow -- */
+
+@media (max-width: 720px) {
+  .chrome {
+    gap: 1rem;
+  }
+
+  /* No hamburger. The four links wrap and shrink; they are four short words. */
+  .chrome__nav ul {
+    gap: 0.85rem;
+  }
+}

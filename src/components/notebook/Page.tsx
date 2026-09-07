@@ -1,4 +1,5 @@
-import { framePct, viewBoxOf, type Box } from './geometry'
+import type { ReactNode } from 'react'
+import { FRAME, framePct, viewBoxOf, type Box } from './geometry'
 import { HOLE_RX, HOLE_RY, holesFor } from './holes'
 
 /**
@@ -23,7 +24,24 @@ type PageProps = {
   side: Side
   box: Box
   sheet: string
+  /** What is printed on this sheet. Laid out in notebook-frame units. */
+  children?: ReactNode
+  /** True while WebGL is drawing this sheet mid-turn; the DOM twin hides. */
+  turning?: boolean
 }
+
+/**
+ * Children are wrapped in a box the size of the WHOLE notebook frame, shifted
+ * so its origin sits on the notebook's origin. Anything printed on the page can
+ * then be positioned in the same 1277x748 space every other layer uses, and the
+ * page's own clip decides how much of it this sheet shows.
+ */
+const spreadFrame = (box: Box) => ({
+  left: `${(-box.x / box.w) * 100}%`,
+  top: `${(-box.y / box.h) * 100}%`,
+  width: `${(FRAME.w / box.w) * 100}%`,
+  height: `${(FRAME.h / box.h) * 100}%`,
+})
 
 /**
  * Cut edges of the sheets underneath. Deliberately non-linear: the tones step
@@ -34,24 +52,28 @@ const STACK_TONES = ['#e7dfd0', '#ded4c2', '#d3c8b2', '#c7baa1', '#b9ab8f']
 const STACK_JITTER = [0.45, -0.35, 0.8, -0.15, 0.55]
 const STACK_STEP = 2.4
 
-/**
- * The paper surface itself. Shared with PaperLips so the strip redrawn in
- * front of the wire is the same paint as the page it belongs to — any drift
- * between the two would show up as a seam across the sheet.
- */
-export function PageSurface({ side, sheet }: { side: Side; sheet: string }) {
+/** The paper surface itself. */
+function PageSurface({ side, sheet }: { side: Side; sheet: string }) {
   return (
     <>
       <path className="notebook__sheet" d={sheet} fill="#f2ece1" filter="url(#nb-paper)" />
-      <path d={sheet} fill={`url(#nb-sheen-${side})`} />
-      <path d={sheet} fill="url(#nb-page-fall)" />
-      <path d={sheet} fill={`url(#nb-gutter-${side})`} />
+      {/* Lighting, not material: the sheen, the falloff and the gutter shading
+          describe how the room falls on this page, not what the paper is. They
+          carry a class so the page-turn's paper capture can leave them out and
+          photograph the material alone — a turning sheet gets its lighting from
+          the shader, and baking a gutter gradient into its texture drags a hard
+          grey band around with it. */}
+      <g className="notebook__page-shading">
+        <path d={sheet} fill={`url(#nb-sheen-${side})`} />
+        <path d={sheet} fill="url(#nb-page-fall)" />
+        <path d={sheet} fill={`url(#nb-gutter-${side})`} />
+      </g>
     </>
   )
 }
 
-/** Bore, cut edge and crushed fibre. Shared so lips punch through identically. */
-export function PunchHole({ x, y }: { x: number; y: number }) {
+/** Bore, cut edge and crushed fibre. */
+function PunchHole({ x, y }: { x: number; y: number }) {
   return (
     <g>
       <ellipse
@@ -88,12 +110,21 @@ export function PunchHole({ x, y }: { x: number; y: number }) {
   )
 }
 
-export function Page({ side, box, sheet }: PageProps) {
+export function Page({ side, box, sheet, children, turning = false }: PageProps) {
   const outward = side === 'left' ? -1 : 1
   const understack = STACK_TONES.map((tone, i) => ({ tone, depth: i + 1 })).reverse()
 
   return (
-    <div className={`notebook__page notebook__page--${side}`} style={framePct(box)}>
+    <div
+      className={[
+        'notebook__page',
+        `notebook__page--${side}`,
+        turning ? 'notebook__page--turning' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+      style={framePct(box)}
+    >
       <svg
         className="notebook__page-svg"
         viewBox={viewBoxOf(box)}
@@ -123,6 +154,14 @@ export function Page({ side, box, sheet }: PageProps) {
           ))}
         </g>
       </svg>
+
+      {children ? (
+        <div className="notebook__page-content">
+          <div className="notebook__spread-frame" style={spreadFrame(box)}>
+            {children}
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

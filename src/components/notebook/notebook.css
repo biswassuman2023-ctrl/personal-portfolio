@@ -6,10 +6,18 @@
 .notebook-stage {
   position: relative;
   width: min(76vw, 1277px);
-  max-width: calc(82dvh * 1.7072);
+  max-width: calc(72dvh * 1.7072);
   aspect-ratio: 1277 / 748;
   perspective: 2600px;
   perspective-origin: 50% 44%;
+  container-type: inline-size;
+}
+
+/* One notebook unit as a real length, so page content can be laid out in the
+   same coordinate space the SVG layers use (1277 across). Everything printed
+   on the paper sizes itself from this and therefore scales with the object. */
+.notebook {
+  --u: 0.0783cqw;
 }
 
 /* Two degrees and a quarter degree of roll. Enough to read as an object that
@@ -81,6 +89,16 @@
     drop-shadow(2px 6px 12px rgba(34, 28, 20, 0.16));
 }
 
+/* What is printed on the sheet. Clipped to the page so anything crossing the
+   binding — the wordmark — is cut at the paper's edge and picked up again by
+   the other page, the way ink on a real spread behaves. */
+.notebook__page-content {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: auto;
+}
+
 /* ----------------------------------------------------------- future use -- */
 
 .notebook__tab-rail {
@@ -110,4 +128,9 @@
   .notebook {
     transform: rotateX(1.6deg) rotateZ(-0.2deg);
   }
+}
+
+/* Aligns printed content with the notebook's own coordinate space. */
+.notebook__spread-frame {
+  position: absolute;
 }

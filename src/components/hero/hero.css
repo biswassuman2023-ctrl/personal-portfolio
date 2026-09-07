@@ -1,0 +1,232 @@
+/* ------------------------------------------------------- printed matter --
+   Everything is positioned in notebook units via --u, so the composition
+   scales with the object rather than with the viewport.
+
+   The spread is held to one rule: subtract. Nothing is centred, nothing is
+   evenly spaced, and every artefact is a piece of paper before it is a
+   component. Where an area of the page is empty, it stays empty. */
+
+.hero__defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.hero-artifact {
+  position: absolute;
+  transform-origin: 50% 50%;
+}
+
+/* Fills its artefact — but only the sheet. Anything with its own dimensions
+   (a seal, a clip) opts out by being more specific. */
+.hero-artifact svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.hero-artifact svg.wax-seal {
+  width: calc(var(--u) * 42);
+  height: calc(var(--u) * 42);
+}
+
+/* ---------------------------------------------------------- index marks -- */
+
+.index-marks span {
+  position: absolute;
+  font-family: var(--font-hand);
+  font-size: calc(var(--u) * 15);
+  line-height: 1;
+  color: #bcb3a1;
+}
+
+/* -------------------------------------------------------------- name tag --
+   Paper and nothing else: no keyline, no fill behind the type, no ring, no
+   eyelet. Those made it a UI pill with an icon. It sits on the page on its own
+   contact shadow, and the cut is slightly out of true on every side. */
+
+/* Shadows are SVG feDropShadow, declared inside each artefact. A CSS filter
+   here does not survive the page-turn capture: the element serialises into a
+   foreignObject and comes back as a black rectangle. */
+/* ---------------------------------------------------------- photo print -- */
+
+/* an unexposed emulsion panel: cool against the warm sheet around it */
+/* -------------------------------------------------------- contact card -- */
+
+/* The shadow goes on the SHEET, not the card. A filter on the container
+   rasterises the HTML text inside it and softens the type. */
+.contact-card__svg {
+  position: absolute;
+  inset: 0;
+}
+
+.contact-card__body {
+  position: absolute;
+  inset: calc(var(--u) * 15) calc(var(--u) * 14) calc(var(--u) * 12) calc(var(--u) * 20);
+}
+
+.contact-card__heading {
+  display: block;
+  font-family: var(--font-display);
+  font-size: calc(var(--u) * 31);
+  line-height: 0.95;
+  letter-spacing: 0.02em;
+  color: #2a2620;
+}
+
+.contact-card__list {
+  /* Tailwind preflight strips list markers, and the numbering is the point. */
+  list-style: decimal;
+  margin: calc(var(--u) * 9) 0 0;
+  padding: 0 0 0 calc(var(--u) * 15);
+  font-family: var(--font-hand);
+  font-size: calc(var(--u) * 16);
+  line-height: 1.66;
+  color: #4a443a;
+}
+
+.contact-card__list li::marker {
+  color: #9a9183;
+}
+
+/* ------------------------------------------------------------- wax seal -- */
+
+.wax-seal {
+  position: absolute;
+  right: calc(var(--u) * -15);
+  top: calc(var(--u) * -16);
+}
+
+/* ----------------------------------------------------------- role card -- */
+
+.role-card__svg {
+  position: absolute;
+  inset: 0;
+}
+
+.role-card__body {
+  position: absolute;
+  inset: 0;
+  padding: calc(var(--u) * 9) calc(var(--u) * 8) 0;
+  text-align: center;
+}
+
+.role-card__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: calc(var(--u) * 25);
+  line-height: 1.1;
+  color: #201d18;
+}
+
+/* Pagkaki, like the rest of our own type. The reference sets an ornamental
+   ampersand here, but borrowing the wordmark's script for it would leak a
+   third face into the system for the sake of one glyph. */
+.role-card__amp {
+  font-size: 1.1em;
+  padding: 0 0.12em;
+}
+
+/* ---------------------------------------------------------- descriptor -- */
+
+.descriptor {
+  position: absolute;
+  margin: 0;
+  white-space: nowrap;
+  font-family: var(--font-display);
+  font-size: calc(var(--u) * 32);
+  line-height: 1;
+  color: #201d18;
+}
+
+.descriptor__boxed {
+  border: calc(var(--u) * 1.1) solid #201d18;
+  padding: calc(var(--u) * 3) calc(var(--u) * 7) calc(var(--u) * 5);
+  background: #efe6cf;
+}
+
+.descriptor__plain {
+  padding-left: calc(var(--u) * 9);
+}
+
+/* ----------------------------------------------------------- statement -- */
+
+.statement {
+  position: absolute;
+  margin: 0;
+  font-family: var(--font-hand);
+  font-size: calc(var(--u) * 19);
+  line-height: 1.62;
+  color: #4a443a;
+}
+
+/* ------------------------------------------------------------ sign off -- */
+
+.sign-off {
+  position: absolute;
+  font-family: var(--font-display);
+  font-size: calc(var(--u) * 17);
+  letter-spacing: 0.16em;
+  color: #7f7666;
+}
+
+/* -------------------------------------------------------------- wordmark --
+   Drawn as SVG so `y` is literally the baseline: the pieces are set at very
+   different sizes and must sit on one line, which CSS cannot guarantee. */
+
+/* Type is never filtered and never blurred: the largest thing on the page
+   must also be the sharpest. */
+.wordmark {
+  position: absolute;
+  text-rendering: geometricPrecision;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+/* No filter. This carried a turbulence displacement for a dry-ink texture and
+   it made the largest type on the page the softest thing on it — filtered text
+   is rasterised through the filter region and loses its edges. The Didone's
+   own contrast does the printed character instead. */
+/* -------------------------------------------------------------- narrow --
+   Desktop is the art direction. Below it the spread keeps its composition and
+   simply scales, because the notebook scales — the layout is in notebook
+   units, not viewport units, so nothing reflows. Only the smallest screens
+   lift the written sizes, where scaled-down handwriting stops being legible. */
+
+@media (max-width: 640px) {
+  .statement,
+  .contact-card__list {
+    font-size: calc(var(--u) * 16);
+  }
+}
+
+/* ------------------------------------------------------ during capture --
+   The page-turn texture is made by serialising this DOM into an SVG
+   foreignObject. Filters do not survive that trip intact, so the drop shadows
+   under the paper artefacts are switched off for the one frame the capture
+   reads. They are two-pixel offsets under small pieces of card; losing them
+   for the duration of a moving page costs nothing.
+
+   Scoped to the hero's own artefacts on purpose — the notebook's paper and
+   leather are SVG filters too, and blanking those would strip the object of
+   its material. */
+
+[data-capturing] .hero-artifact [filter] {
+  filter: none !important;
+}

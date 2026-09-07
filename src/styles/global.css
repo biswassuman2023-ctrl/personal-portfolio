@@ -6,6 +6,66 @@
   --color-studio-base: #f6f4ee;
   --color-studio-lit: #fbf9f5;
   --color-studio-shade: #eeebe3;
+
+  /* The site interface, and the only colour outside the notebook's own
+     leather, paper and metal. */
+  --color-ink-blue: #2947da;
+}
+
+/* ----------------------------------------------------------------- type --
+   Two faces carry the project, plus one deliberate exception.
+
+   --font-display   PAGKAKI. Headings and printed labels.
+   --font-hand      Schoolbell. Annotations, microcopy, anything written.
+
+   --font-serif / --font-script are used ONLY by the giant Portfolio wordmark,
+   which is a one-off display treatment reconstructed from the reference, not
+   part of the system. Nothing else in the project may reach for them. */
+
+/*
+  Every face is SELF-HOSTED, and that is load-bearing rather than a preference.
+  The page-turn capture has to inline the fonts into the texture it rasterises,
+  and it can only do that for same-origin files — served from Google, the two
+  wordmark faces silently fell back to a system sans in the texture, so the
+  turning page showed the right words in the wrong typefaces.
+*/
+@font-face {
+  font-family: "PAGKAKI";
+  src: url("/fonts/PAGKAKI-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Bodoni Moda";
+  src: url("/fonts/BodoniModa-900.woff2") format("woff2");
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Cormorant Garamond";
+  src: url("/fonts/CormorantGaramond-Italic300.woff2") format("woff2");
+  font-weight: 300;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Schoolbell";
+  src: url("/fonts/Schoolbell-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --font-display: 'PAGKAKI', 'Iowan Old Style', Georgia, serif;
+  --font-hand: 'Schoolbell', 'Bradley Hand', 'Comic Sans MS', cursive;
+  --font-serif: 'Bodoni Moda', 'Didot', Georgia, serif;
+  --font-script: 'Cormorant Garamond', Georgia, serif;
 }
 
 html,
@@ -21,32 +81,58 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-/* ---------------------------------------------------------------- studio --
+PLACEHOLDER/* ---------------------------------------------------------------- studio --
    One soft source from the upper left, and nothing else. The environment is
    here to give the object somewhere to sit, not to be looked at. */
 
 .studio {
   position: relative;
-  display: grid;
-  place-items: center;
-  min-height: 100dvh;
-  padding: 5vmin 4vmin;
-  overflow: hidden;
   background: radial-gradient(
     118% 88% at 33% 20%,
     var(--color-studio-lit) 0%,
     var(--color-studio-base) 44%,
     var(--color-studio-shade) 100%
   );
+  background-attachment: fixed;
 }
 
 /* Just enough tooth to stop the gradient banding. */
 .studio::after {
   content: '';
-  position: absolute;
+  position: fixed;
   inset: 0;
+  z-index: 1;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   opacity: 0.03;
   mix-blend-mode: multiply;
   pointer-events: none;
+}
+
+/* ----------------------------------------------------------------- stage --
+   The scroll runway. Its height IS the length of the turn: the notebook stays
+   put while the page travels, so scrolling moves paper rather than the view. */
+
+.stage {
+  position: relative;
+  z-index: 2;
+  height: 420vh;
+}
+
+.stage__sticky {
+  position: sticky;
+  top: 0;
+  display: grid;
+  place-items: center;
+  height: 100dvh;
+  /* Top padding clears the chrome. The nav must never sit against the
+     notebook's edge — they belong to different worlds. */
+  padding: clamp(4.75rem, 8.5vh, 6.5rem) 4vmin 4vmin;
+}
+
+/* Wraps the notebook and the hero's shared SVG defs in one box, so the page
+   capture can photograph both together — the paper's filters are defined
+   outside the pages that use them, and a clone without them renders blank. */
+.stage__object {
+  position: relative;
+  display: flex;
 }

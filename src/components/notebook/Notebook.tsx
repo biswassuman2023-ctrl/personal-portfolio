@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { Cover } from './Cover'
 import { MaterialDefs } from './MaterialDefs'
 import { Pages } from './Pages'
@@ -19,13 +20,19 @@ import './notebook.css'
  * turning and book closing can be added later by transforming these pieces
  * rather than rebuilding them.
  */
-export function Notebook() {
+type NotebookProps = {
+  leftPage?: ReactNode
+  rightPage?: ReactNode
+  turningSide?: "left" | "right" | null
+}
+
+export function Notebook({ leftPage, rightPage, turningSide = null }: NotebookProps) {
   return (
     <div className="notebook-stage">
       <MaterialDefs />
       <div className="notebook">
         <Cover />
-        <Pages />
+        <Pages left={leftPage} right={rightPage} turningSide={turningSide} />
         <Spine />
         <Rings />
         {/*
