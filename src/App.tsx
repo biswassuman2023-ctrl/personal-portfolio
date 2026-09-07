@@ -5,14 +5,18 @@ import { HeroDefs } from './components/hero/HeroDefs'
 import { HeroLeftPage } from './components/hero/HeroLeftPage'
 import { HeroRightPage } from './components/hero/HeroRightPage'
 import { Notebook } from './components/notebook/Notebook'
+import { OriginLeftPage } from './components/origin/OriginLeftPage'
+import { OriginRightPage } from './components/origin/OriginRightPage'
+import type { Spread } from './components/page-turn/spreads'
 import { PageTurnStage } from './components/page-turn/PageTurnStage'
 import { useSpreadCapture } from './components/page-turn/useSpreadCapture'
 import { useTurnProgress } from './components/page-turn/useTurnProgress'
 import { startSmoothScroll } from './lib/smoothScroll'
 import './components/hero/hero.css'
+import './components/origin/origin.css'
 
 /**
- * Chapter 01 — Hero, inside the notebook, inside the site.
+ * The book, and the site it is lying in.
  *
  * Three layers, and the order matters:
  *
@@ -26,6 +30,13 @@ import './components/hero/hero.css'
  * real thing — so the texture is only on screen while it is moving, which is
  * the one time nobody can tell.
  */
+
+/** The chapters, in the order they are bound. Adding one is appending an entry. */
+const BOOK: Spread[] = [
+  { id: 'hero', left: <HeroLeftPage />, right: <HeroRightPage /> },
+  { id: 'origin', left: <OriginLeftPage />, right: <OriginRightPage /> },
+]
+
 export default function App() {
   const stageRef = useRef<HTMLDivElement>(null)
   /* State, not a ref: the capture needs to run once the node EXISTS, and
@@ -36,6 +47,27 @@ export default function App() {
   const capture = useSpreadCapture(objectNode, true)
 
   useEffect(() => startSmoothScroll(), [])
+
+  /*
+    Which spread each page is showing — and they are NOT always the same one,
+    because a book in the middle of a turn is showing two chapters at once.
+
+    RIGHT changes first. The sheet being lifted carries Chapter 01's right page
+    away with it (that ink is on the mesh now, not on the paper), so what lies
+    under it is already the next chapter's right page — from the moment the
+    turn starts, not when it finishes. That is what makes the turn read as
+    uncovering something rather than as a page going blank and refilling.
+
+    LEFT changes last, when the sheet actually comes to rest on it.
+
+    The capture gate is load-bearing. The turning sheet's front texture is a
+    photograph of Chapter 01's right page taken once from this DOM; until that
+    photograph exists this has to render Chapter 01 whatever the scroll says,
+    or a reload partway down the runway would photograph Chapter 02 and the
+    sheet would turn over carrying the wrong chapter's ink.
+  */
+  const rightSpread = capture && (active || landed) ? 1 : 0
+  const leftSpread = landed ? 1 : 0
 
   return (
     <main className="studio">
@@ -57,12 +89,18 @@ export default function App() {
                 of a turn is therefore live DOM, not a texture: nothing to fade,
                 nothing sitting on top of anything.
               */}
-              <Notebook
-                leftPage={<HeroLeftPage />}
-                rightPage={<HeroRightPage />}
-                turningSide={active ? 'right' : null}
-                landed={landed}
-              />
+              {/*
+                The notebook is handed two page nodes and knows nothing else:
+                no chapter, no turn state. Its turningSide/landed props date
+                from when there was no second chapter and a turn could only
+                blank the paper it left behind. There is a real chapter back
+                there now, so nothing needs blanking and neither prop is
+                passed — they are left on the component rather than deleted,
+                since removing them means editing the notebook and the
+                page-turn stylesheet, which is not worth touching to drop two
+                lines.
+              */}
+              <Notebook leftPage={BOOK[leftSpread].left} rightPage={BOOK[rightSpread].right} />
               {capture ? (
                 <PageTurnStage progressRef={progress} capture={capture} active={active} />
               ) : null}

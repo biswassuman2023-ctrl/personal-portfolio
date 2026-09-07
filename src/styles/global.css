@@ -1,11 +1,11 @@
 @import 'tailwindcss';
 
 @theme {
-  /* The room the notebook sits in. Warm, never pure #fff — a white object on
-     pure white has nothing to be white against. */
-  --color-studio-base: #f6f4ee;
-  --color-studio-lit: #fbf9f5;
-  --color-studio-shade: #eeebe3;
+  /* The room the notebook sits in: near-white with a soft pale-blue cast,
+     never pure #fff — a white object on pure white has nothing to be white
+     against. body's own fallback colour, shown before the background image
+     decodes. */
+  --color-studio-base: #f4f9fd;
 
   /* The site interface, and the only colour outside the notebook's own
      leather, paper and metal. */
@@ -90,68 +90,75 @@ body {
 }
 
 /* ---------------------------------------------------------------- studio --
-   One soft source from the upper left, and nothing else. The environment is
-   here to give the object somewhere to sit, not to be looked at.
+   A soft pale-blue wallpaper: white with a blue wash strongest near the top
+   and bottom edges and whitest around the vertical middle, printed over
+   with a field of tiny soft blue dots. Two art-directed reference passes
+   before this one were aiming for an organic, unpatterned canvas grain —
+   this is a deliberate change of direction, not a refinement of that: the
+   dots are the point this time, not a defect to remove.
 
-   A stray "PLACEHOLDER" token used to sit right in front of this comment,
-   turning the whole rule into `PLACEHOLDER .studio { ... }` — a descendant
-   selector requiring an ancestor element that doesn't exist, so the gradient
-   below had never actually been painting. Computed style confirmed it:
-   `background: rgba(0,0,0,0) none ...`. The flat body background-color was
-   quietly standing in for it, which is exactly why the room read as "overly
-   clean/plain" rather than as a lit surface — there was no surface, only a
-   flat fill. */
+   Two static images, not one, because the two parts behave differently
+   under scaling and both are baked rasters rather than anything computed
+   live — see the CSS-gradient-dithering note this file used to carry for
+   why "live" is avoided here at all:
+
+   `.studio` itself — the wash. A soft atmospheric gradient tolerates being
+   cropped by `background-size: cover` on whatever aspect ratio the viewport
+   turns out to be; a single generous, roughly square image (gencanvas in
+   session scratch, genvignette.mjs) covers a wide desktop or a tall phone
+   without looking stretched either way.
+
+   `.studio::before` — the dots. These do NOT tolerate that: `cover` scales
+   its source to fill the viewport, so a dot pattern shown that way is a
+   slightly different physical size on every screen, which is the opposite
+   of a printed wallpaper's fixed dot pitch. This layer is a small tile
+   (180 CSS px, 100 dots, generated at 3x for a retina screen) that
+   `background-repeat: repeat`s at an explicit `background-size` instead of
+   its native pixel size — so the pitch between dots is the same 18px on
+   every viewport, and `repeat` rather than `cover` means it is never
+   resampled or stretched at all. Each dot is jittered in position, radius
+   and strength so the field doesn't read as a mechanical grid, and the tile
+   wraps exactly (each dot is drawn across a 3x3 block of copies and only the
+   centre kept, so a dot crossing the tile's own edge is whole on both sides
+   of the seam) — there is no boundary to spot even close up.
+
+   A `mask-image` fades the dot layer's own opacity vertically, echoing the
+   wash's shape — strong near the edges, nearly gone around the middle,
+   which is the density variation the reference actually shows rather than a
+   flat, uniformly-dotted field. */
 
 .studio {
   position: relative;
-  background: radial-gradient(
-    118% 88% at 33% 20%,
-    var(--color-studio-lit) 0%,
-    var(--color-studio-base) 44%,
-    var(--color-studio-shade) 100%
-  );
-  background-attachment: fixed;
+  background: url('/bg-vignette.webp') center / cover no-repeat fixed;
 }
 
-/*
-  Canvas texture, two layers stacked the same way the notebook's own
-  materials are built: a coarse, low-frequency tonal drift first (the way raw
-  paper or primed canvas is never perfectly even), a fine grain over it for
-  tooth. Both are desaturated to plain luminance noise before they reach the
-  page — feTurbulence is independently random per channel, and left alone
-  that reads as coloured static/confetti rather than a paper surface. Collapsed
-  to one shared tone and blended with `multiply`, they can only ever darken
-  slightly into the existing warm gradient, never grey it or add a hue of
-  their own.
-
-  One rect covers the whole viewport rather than a small tile repeated across
-  it, so there is no seam to spot on a wide screen.
-*/
 .studio::before {
   content: '';
   position: fixed;
   inset: 0;
   z-index: 1;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1600' height='1000' viewBox='0 0 1600 1000'%3E%3Cfilter id='m'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.012' numOctaves='2' seed='11' result='n'/%3E%3CfeColorMatrix in='n' type='matrix' values='0.33 0.33 0.33 0 0 0.33 0.33 0.33 0 0 0.33 0.33 0.33 0 0 0 0 0 1 0' result='g'/%3E%3CfeComponentTransfer in='g'%3E%3CfeFuncR type='linear' slope='0.7' intercept='0.16'/%3E%3CfeFuncG type='linear' slope='0.7' intercept='0.16'/%3E%3CfeFuncB type='linear' slope='0.7' intercept='0.16'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23m)'/%3E%3C/svg%3E");
-  background-size: cover;
-  background-repeat: no-repeat;
-  background-position: center;
-  opacity: 0.09;
-  mix-blend-mode: multiply;
-  pointer-events: none;
-}
-
-.studio::after {
-  content: '';
-  position: fixed;
-  inset: 0;
-  z-index: 1;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1600' height='1000' viewBox='0 0 1600 1000'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.55' numOctaves='2' seed='4' result='n'/%3E%3CfeColorMatrix in='n' type='matrix' values='0.33 0.33 0.33 0 0 0.33 0.33 0.33 0 0 0.33 0.33 0.33 0 0 0 0 0 1 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  background-size: cover;
-  background-repeat: no-repeat;
-  background-position: center;
-  opacity: 0.045;
-  mix-blend-mode: multiply;
+  background-image: url('/bg-dots.png');
+  background-size: 180px 180px;
+  background-repeat: repeat;
+  background-attachment: fixed;
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    black 0%,
+    black 16%,
+    rgba(0, 0, 0, 0.12) 42%,
+    rgba(0, 0, 0, 0.12) 58%,
+    black 84%,
+    black 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    black 0%,
+    black 16%,
+    rgba(0, 0, 0, 0.12) 42%,
+    rgba(0, 0, 0, 0.12) 58%,
+    black 84%,
+    black 100%
+  );
   pointer-events: none;
 }
 

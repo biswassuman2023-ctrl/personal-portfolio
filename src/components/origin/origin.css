@@ -1,0 +1,261 @@
+/* ------------------------------------------------- chapter 02 — origin --
+   Printed matter for the second spread. Everything is sized in `--u`, the
+   notebook unit, exactly as Chapter 01 is — so this spread scales with the
+   object rather than with the viewport, and nothing reflows when the notebook
+   resizes.
+
+   No new faces, no new colour system: Pagkaki for anything printed, Schoolbell
+   for anything written by hand, and an editorial red/ink palette drawn from
+   the wax seal Chapter 01 already established (fonts.ts PAPER.wax family) —
+   this spread just gives that red a real job instead of using it once on a
+   seal and never again.
+
+   THE RULE IS NOW LOCKED TO THE FONT, not to what an element happens to be:
+
+     LEFT PAGE    Pagkaki -> deep red.     Schoolbell -> muted red.
+     RIGHT PAGE   Pagkaki -> deep red.     Schoolbell -> jet black.
+
+   Every element on the spread is one or the other, so this reduces to "which
+   page, which font" rather than a colour picked per component. Nothing here
+   uses opacity to rank importance — a faded-looking word was the single most
+   common complaint about the pass before this one, and opacity was how each
+   instance of it got made. Hierarchy is now entirely size, weight of stroke,
+   and which of the two reds a piece of type is allowed to use; every colour
+   below is a flat, fully-opaque value. */
+
+.origin-page {
+  --origin-red: #7a2b22; /* deep red — Pagkaki, both pages */
+  --origin-red-muted: #8a4136; /* muted red — Schoolbell, LEFT page only */
+  --origin-ink: #18140f; /* jet black — Schoolbell, RIGHT page only */
+}
+
+.origin-eyebrow,
+.origin-heading,
+.origin-subject,
+.origin-degree,
+.origin-narrative-block,
+.origin-caption,
+.origin-beat,
+.origin-note,
+.origin-story,
+.origin-closing {
+  position: absolute;
+}
+
+/* ------------------------------------------------------------- eyebrow --
+   Pagkaki, left page: deep red, same as every other Pagkaki word on this
+   spread. */
+
+.origin-eyebrow {
+  font-family: var(--font-display);
+  font-size: calc(var(--u) * 14);
+  line-height: 1;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--origin-red);
+}
+
+/* ------------------------------------------------------------- heading --
+   Both pages share it, so the two read as one spread rather than as two
+   pages that happen to be adjacent. Deep red: the one colour on the page
+   with more visual weight than the ink itself. */
+
+.origin-heading {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 400;
+  line-height: 0.92;
+  letter-spacing: 0.005em;
+  color: var(--origin-red);
+}
+
+/* ------------------------------------------------------------- subject --
+   ECONOMICS: the subject of the whole left page, and the second heading-
+   weight red on it — deliberately as loud as "Where it started" itself. */
+
+.origin-subject {
+  font-family: var(--font-display);
+  line-height: 1;
+  letter-spacing: 0.04em;
+  color: var(--origin-red);
+}
+
+/* -------------------------------------------------------------- degree --
+   Four short lines, set as a list because that is what it is — but with the
+   markers gone, because a bulleted list here would read as a CV. Schoolbell,
+   left page: muted red. */
+
+.origin-degree {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-family: var(--font-hand);
+  font-size: calc(var(--u) * 16);
+  line-height: 1.78;
+  color: var(--origin-red-muted);
+}
+
+/* ------------------------------------------------------------ narrative --
+   The origin story, two short paragraphs. The BLOCK is positioned; the two
+   <p> inside it sit in normal flow, which is what lets the second paragraph's
+   gap be an ordinary margin instead of a second absolute position computed
+   by hand. Schoolbell, left page: muted red, same as the degree block above
+   it — the whole lower half of the left page is one voice. */
+
+.origin-narrative-block {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--u) * 13);
+}
+
+.origin-narrative {
+  margin: 0;
+  font-family: var(--font-hand);
+  font-size: calc(var(--u) * 17);
+  line-height: 1.58;
+  color: var(--origin-red-muted);
+}
+
+/* ---------------------------------------------------------------- story --
+   The self-teaching, told once. Schoolbell, right page: jet black — the
+   right page's Schoolbell is never red, so the reader's eye can tell which
+   page it is on without reading a word of it. */
+
+.origin-story {
+  margin: 0;
+  font-family: var(--font-hand);
+  font-size: calc(var(--u) * 18);
+  line-height: 1.7;
+  color: var(--origin-ink);
+}
+
+/* ------------------------------------------------------------- caption --
+   Written on the paper under a print, not typeset. Only ever appears on the
+   left page (the right page's print carries a handwritten note instead), so
+   it takes the same muted red as the rest of that page's Schoolbell. */
+
+.origin-caption {
+  font-family: var(--font-hand);
+  font-size: calc(var(--u) * 15);
+  line-height: 1;
+  letter-spacing: 0.06em;
+  color: var(--origin-red-muted);
+}
+
+/* ---------------------------------------------------------------- tape -- */
+
+.origin-tape svg,
+.origin-step svg,
+.origin-mark svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* --------------------------------------------------------------- beats --
+   The journey's words. Pagkaki, right page: deep red, flat, every beat the
+   same weight — no ramp, no fading beat. The progression is carried by the
+   words and the connectors between them, not by making four of the five
+   words harder to read than the fifth. */
+
+.origin-beat {
+  font-family: var(--font-display);
+  line-height: 1;
+  letter-spacing: 0.06em;
+  color: var(--origin-red);
+}
+
+/* ---------------------------------------------------------------- note --
+   Schoolbell, right page: jet black, same as the story below it. */
+
+.origin-note {
+  margin: 0;
+  font-family: var(--font-hand);
+  font-size: calc(var(--u) * 16);
+  line-height: 1.5;
+  color: var(--origin-ink);
+  transform: rotate(-1.6deg);
+  transform-origin: 0 0;
+}
+
+/* ------------------------------------------------------------- closing --
+   The payoff. A quiet line and then a loud one: the whole point is the
+   distance between the two, which is lost if both are set at the same size —
+   or, now, if both are set in the same colour. The quiet line is Schoolbell,
+   right page, jet black like everything around it; the loud one is Pagkaki,
+   so it takes the page's deep red, the same weight as the two headings. */
+
+.origin-closing {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--u) * 8);
+}
+
+.origin-closing__quiet {
+  font-family: var(--font-hand);
+  font-size: calc(var(--u) * 19);
+  line-height: 1;
+  color: var(--origin-ink);
+}
+
+.origin-closing__loud {
+  font-family: var(--font-display);
+  font-size: calc(var(--u) * 36);
+  line-height: 1;
+  letter-spacing: 0.01em;
+  color: var(--origin-red);
+}
+
+/* -------------------------------------------------------------- narrow --
+   As Chapter 01: the composition does not change, because it is laid out in
+   notebook units and the notebook scales as one object. Only the written
+   sizes lift, where scaled-down handwriting stops being legible. */
+
+@media (max-width: 640px) {
+  .origin-degree,
+  .origin-caption,
+  .origin-note {
+    font-size: calc(var(--u) * 17);
+  }
+
+  .origin-narrative,
+  .origin-story {
+    font-size: calc(var(--u) * 19);
+  }
+}
+
+/* --------------------------------------------------------------- settle --
+   The one piece of motion on this spread, and it exists to cover a seam in
+   the page-turn rather than to decorate anything.
+
+   The turning sheet's BACK is ink-free paper — it samples the blank capture,
+   which is what the page-turn was built to do when there was no second
+   chapter to show back there. So at the instant the sheet lands and the mesh
+   switches off, this page's ink would otherwise appear from nothing in a
+   single frame. Fading it up over a fifth of a second reads as the ink
+   settling onto paper that has just come to rest, which is close enough to
+   what a real page does that the eye stops asking.
+
+   Fixing it properly means giving the sheet's back face a third capture of
+   this page, and that is a change to the page-turn's own capture and shader —
+   deliberately not made here. */
+
+.origin-page {
+  animation: origin-settle 220ms ease-out both;
+}
+
+@keyframes origin-settle {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .origin-page {
+    animation: none;
+  }
+}
