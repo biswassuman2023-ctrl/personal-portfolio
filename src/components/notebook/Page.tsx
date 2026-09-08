@@ -29,13 +29,19 @@ type PageProps = {
   /** True while WebGL is drawing this sheet mid-turn; the DOM twin hides. */
   turning?: boolean
   /**
-   * The NEXT spread's content for this page, rendered in the same frame but
-   * invisible in ordinary view — revealed only for the page-turn's capture of
-   * the turning sheet's back face, so that face can show a real photograph of
-   * the page it is arriving at instead of blank material. See page-turn.css's
-   * `[data-capturing='nextLeft']` rules and useSpreadCapture's third pass.
+   * The chapters this page will LATER hold, rendered in the same frame but
+   * invisible in ordinary view — revealed one at a time, by index, for the
+   * page-turn captures that photograph each turning sheet's faces, so a sheet
+   * can show a real photograph of the page it is arriving at instead of blank
+   * material.
+   *
+   * They are rendered up front, always, rather than mounted when their turn
+   * comes round: the capture cannot wait for React to render something, and a
+   * chapter that appears in the DOM mid-session is a chapter that can flash on
+   * screen. Index 0 is the spread AFTER this one, and every entry is offset
+   * the same way — see useSpreadCapture, which does the counting.
    */
-  previewChildren?: ReactNode
+  previews?: ReactNode[]
 }
 
 /**
@@ -118,7 +124,7 @@ function PunchHole({ x, y }: { x: number; y: number }) {
   )
 }
 
-export function Page({ side, box, sheet, children, turning = false, previewChildren }: PageProps) {
+export function Page({ side, box, sheet, children, turning = false, previews }: PageProps) {
   const outward = side === 'left' ? -1 : 1
   const understack = STACK_TONES.map((tone, i) => ({ tone, depth: i + 1 })).reverse()
 
@@ -171,13 +177,20 @@ export function Page({ side, box, sheet, children, turning = false, previewChild
         </div>
       ) : null}
 
-      {previewChildren ? (
-        <div className="notebook__page-content notebook__page-content--preview">
-          <div className="notebook__spread-frame" style={spreadFrame(box)}>
-            {previewChildren}
+      {previews?.map((preview, index) =>
+        preview ? (
+          <div
+            key={index}
+            className="notebook__page-content notebook__page-content--preview"
+            data-preview-side={side}
+            data-preview-index={index}
+          >
+            <div className="notebook__spread-frame" style={spreadFrame(box)}>
+              {preview}
+            </div>
           </div>
-        </div>
-      ) : null}
+        ) : null,
+      )}
     </div>
   )
 }

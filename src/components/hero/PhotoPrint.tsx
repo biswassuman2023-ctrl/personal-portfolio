@@ -1,5 +1,5 @@
 import { u } from './layout'
-import { PAPER } from './fonts'
+import { FONT_HAND, PAPER } from './fonts'
 import { PaperShadow } from './PaperShadow'
 import { cutRect, deckleRect } from './paper'
 
@@ -35,6 +35,23 @@ type PhotoPrintProps = {
   image?: string
   /** Alt text for the developed print. Ignored while `image` is unset. */
   alt?: string
+  /**
+   * Written in the print's chin, the way a photograph is named on the paper
+   * rather than on a label beside it. Needs `chin` to have left room for it.
+   */
+  label?: string
+  /**
+   * Pushed off its printed position, in notebook units — a reader moving it.
+   *
+   * Deliberately part of the TRANSFORM rather than an adjustment to `x`/`y`.
+   * Moving a print by its `left`/`top` left Chrome hit-testing it at the place
+   * it used to be: it drew correctly at the new position and `elementsFromPoint`
+   * agreed, but pointer events still resolved against the old box, so a print
+   * could be dragged once and then could not be picked up again. Composing the
+   * offset into the same transform as the rotation moves the layer itself, and
+   * the hit region goes with it.
+   */
+  offset?: { x: number; y: number }
 }
 
 export function PhotoPrint({
@@ -50,6 +67,8 @@ export function PhotoPrint({
   className = '',
   image,
   alt = '',
+  label,
+  offset,
 }: PhotoPrintProps) {
   const sheet = edge === 'deckle' ? deckleRect(w, h, 8.5, 1.25) : cutRect(w, h, 1.2, 0.6)
   const well = {
@@ -68,7 +87,9 @@ export function PhotoPrint({
         top: u(y),
         width: u(w),
         height: u(h),
-        transform: `rotate(${rotate}deg)`,
+        transform: offset
+          ? `translate(${u(offset.x)}, ${u(offset.y)}) rotate(${rotate}deg)`
+          : `rotate(${rotate}deg)`,
       }}
     >
       <svg viewBox={`0 0 ${w} ${h}`} className="photo-print__svg" aria-hidden="true">
@@ -111,6 +132,26 @@ export function PhotoPrint({
           />
           <CropMarks {...well} />
         </g>
+
+        {/* Outside the shadow group on purpose: this is ink ON the sheet, not
+            part of the sheet, so it must not pick up the paper's own contact
+            shadow. Font and fill are presentation attributes rather than CSS
+            for the reason fonts.ts gives — a class here comes back as the
+            browser's default serif in the page-turn capture. */}
+        {label ? (
+          <text
+            x={w / 2}
+            y={well.y + well.h + chin * 0.66}
+            textAnchor="middle"
+            fontFamily={FONT_HAND}
+            fontSize={13}
+            letterSpacing={0.8}
+            fill={PAPER.ink}
+            fillOpacity={0.8}
+          >
+            {label}
+          </text>
+        ) : null}
       </svg>
       <span className="sr-only" data-slot={slot}>
         {image ? alt : 'Photograph placeholder'}

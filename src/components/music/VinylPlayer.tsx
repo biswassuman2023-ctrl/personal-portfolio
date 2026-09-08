@@ -11,9 +11,11 @@ import './vinyl.css'
  * Audio never autoplays — browsers forbid it and it would be rude regardless.
  * The track is swapped by changing TRACK_SRC. If the file is absent the visual
  * still toggles, so the object stays alive before there is anything to play.
+ *
+ * Vaundy — Odoriko (踊り子).
  */
 
-const TRACK_SRC = '/audio/track.mp3'
+const TRACK_SRC = '/audio/vaundy-odoriko.mp3'
 
 export function VinylPlayer() {
   const [playing, setPlaying] = useState(false)

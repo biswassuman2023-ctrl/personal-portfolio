@@ -1,0 +1,174 @@
+/* ------------------------------------------------- chapter 03 — method --
+   The last spread in the notebook. Sized in `--u`, the notebook unit, exactly
+   as Chapters 01 and 02 are, so it scales with the object rather than with the
+   viewport and nothing reflows when the notebook resizes.
+
+   No new faces and no new colours: Pagkaki for anything printed, Schoolbell
+   for anything written by hand, and the same editorial red/ink palette
+   Chapter 02 established. THE RULE IS STILL LOCKED TO THE FONT:
+
+     LEFT PAGE    Pagkaki -> bright red.     Schoolbell -> deep muted red.
+     RIGHT PAGE   Pagkaki -> bright red.     Schoolbell -> jet black.
+
+   Which is why the two handwritten lines on this spread take different
+   colours from two different classes rather than sharing one: `.method-
+   instruction` lives on the left page and `.method-note` on the right, and the
+   reader can tell which page they are looking at without reading a word.
+
+   The values are repeated here rather than imported from origin.css because a
+   chapter that inherits another chapter's variables is a chapter that breaks
+   when that one is edited. They are the same three colours by intent, and the
+   comment in origin.css is the reason they are stated as literals in SVG. */
+
+.method-page {
+  --method-red: #c1281b; /* bright red — Pagkaki, both pages */
+  --method-red-muted: #743026; /* deep muted red — Schoolbell, LEFT page only */
+  --method-ink: #18140f; /* jet black — Schoolbell, RIGHT page only */
+
+  /* Fills the spread frame so it can hear the cursor anywhere on its own
+     page — the stamps are triggered by movement, and a wrapper with no size
+     hears nothing. The page's own `overflow: hidden` clips this to the sheet,
+     so the left page never receives events over the right one. */
+  position: absolute;
+  inset: 0;
+}
+
+.method-eyebrow,
+.method-heading,
+.method-instruction,
+.method-note {
+  position: absolute;
+}
+
+/* ------------------------------------------------------------- eyebrow -- */
+
+.method-eyebrow {
+  font-family: var(--font-display);
+  font-size: calc(var(--u) * 14);
+  line-height: 1;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--method-red);
+}
+
+/* ------------------------------------------------------------- heading --
+   Both pages share it, at the size chapter headings settled on two chapters
+   ago. Three chapters in, changing it here would only make this spread look
+   like it came from a different book. */
+
+.method-heading {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 400;
+  line-height: 0.92;
+  letter-spacing: 0.005em;
+  color: var(--method-red);
+}
+
+/* --------------------------------------------------------- instruction --
+   The only thing on the left page telling the reader what to do, and it
+   leaves once they have done it. Fading it out is the whole completion
+   signal: a line congratulating the reader for finding five words would be
+   louder than the five words. */
+
+.method-instruction {
+  margin: 0;
+  font-family: var(--font-hand);
+  font-size: calc(var(--u) * 16);
+  line-height: 1;
+  letter-spacing: 0.04em;
+  color: var(--method-red-muted);
+  transition: opacity 620ms ease;
+}
+
+.method-instruction.is-done {
+  opacity: 0;
+}
+
+/* Right page, so jet black rather than muted red — see the rule at the top. */
+.method-note {
+  margin: 0;
+  font-family: var(--font-hand);
+  font-size: calc(var(--u) * 16);
+  line-height: 1;
+  letter-spacing: 0.04em;
+  color: var(--method-ink);
+}
+
+/* --------------------------------------------------------------- stamps --
+   A small perforated sheet of its own, pressed onto the page — a separate
+   physical object, not ink merged into the notebook's paper (that was the
+   previous version of this component; see Stamp.tsx for why it changed).
+   The impression itself is animated by GSAP; everything static about how it
+   sits on the page is here. */
+
+.method-stamp {
+  /* Decorative. The page underneath is the thing listening for the cursor. */
+  pointer-events: none;
+
+  /* An opaque paper object sitting ON the page casts a shadow; ink merged
+     into the page did not. `drop-shadow` is alpha-aware, so it follows the
+     stamp's own perforated silhouette — every scallop along the edge — rather
+     than the rectangular box a `box-shadow` would fall back to. */
+  filter: drop-shadow(0 calc(var(--u) * 1.1) calc(var(--u) * 2.2) rgba(30, 24, 16, 0.22));
+}
+
+.method-stamp__ink {
+  position: absolute;
+  inset: 0;
+
+  /* Not stamped yet. This is also the state the page-turn capture photographs,
+     and the state the page returns to a moment after any stamp presses —
+     correct either way: the reader should never arrive at, or settle on, a
+     page that already has the method printed on it for them. */
+  opacity: 0;
+}
+
+.method-stamp__ink svg {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+}
+
+/* ---------------------------------------------------------- work prints --
+   Four photographs lying loose on the right page. The wrapper spans the whole
+   frame and is inert; only the print inside it is a handle. */
+
+/* The gallery page listens for the pointer itself and works out which print
+   is under it, so the cursor is set HERE rather than on the print: the
+   browser's own idea of what it is hovering goes stale the moment a print has
+   been moved, and a moved print would quietly stop offering to be picked up.
+   See useWorkGallery.ts. */
+.method-page--gallery.is-over-print {
+  cursor: grab;
+}
+
+.method-page--gallery.is-holding {
+  cursor: grabbing;
+}
+
+.work-print__print {
+  /* A drag on this must not scroll the page. On this site scrolling turns the
+     leaf, so a print dragged with a finger would otherwise close the chapter
+     it is printed on. */
+  touch-action: none;
+  user-select: none;
+  -webkit-user-drag: none;
+  transition: filter 180ms ease;
+}
+
+.work-print__print.is-held {
+  /* The lift, and the only thing that changes: the contact shadow drops
+     further and softens, the way paper leaving a surface actually behaves. No
+     scale — see the note in WorkPrint.tsx. */
+  filter: drop-shadow(
+    calc(var(--u) * 1.4) calc(var(--u) * 3.6) calc(var(--u) * 4.4) rgba(34, 28, 20, 0.32)
+  );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .method-instruction,
+  .work-print__print {
+    transition: none;
+  }
+}

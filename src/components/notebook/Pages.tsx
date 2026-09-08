@@ -15,14 +15,18 @@ type PagesProps = {
    */
   landed?: boolean
   /**
-   * The NEXT spread's left page — invisible in ordinary view, revealed only
-   * for the page-turn capture that photographs it for the turning sheet's
-   * back face. Only the left page carries this: the sheet's back is what the
-   * reader arrives at, and in this book's binding that is always a LEFT page
-   * (spreads.ts — the sheet's front is spread N's right page, its back is
-   * spread N+1's left page).
+   * The chapters each side will later hold, invisible in ordinary view and
+   * revealed one at a time for the page-turn captures.
+   *
+   * BOTH sides carry them now. The left page's are the sheets' BACKS — what
+   * the reader arrives at, always a left page in this binding. The right
+   * page's are the sheets' FRONTS, which only becomes a thing that needs
+   * standing in for once there is more than one turn: the first sheet's front
+   * is the page already on screen. (spreads.ts — a sheet's front is spread N's
+   * right page, its back is spread N+1's left page.)
    */
-  previewLeft?: ReactNode
+  previewLefts?: ReactNode[]
+  previewRights?: ReactNode[]
 }
 
 /**
@@ -31,7 +35,14 @@ type PagesProps = {
  * whatever is printed on it as children, so the notebook itself stays a
  * physical object with no knowledge of the chapter it is showing.
  */
-export function Pages({ left, right, turningSide = null, landed = false, previewLeft }: PagesProps) {
+export function Pages({
+  left,
+  right,
+  turningSide = null,
+  landed = false,
+  previewLefts,
+  previewRights,
+}: PagesProps) {
   return (
     <div className="notebook__pages" data-slot="page-stack">
       <Page
@@ -39,11 +50,17 @@ export function Pages({ left, right, turningSide = null, landed = false, preview
         box={LEFT_PAGE}
         sheet={LEFT_SHEET_PATH}
         turning={turningSide === "left" || landed}
-        previewChildren={previewLeft}
+        previews={previewLefts}
       >
         {left}
       </Page>
-      <Page side="right" box={RIGHT_PAGE} sheet={RIGHT_SHEET_PATH} turning={turningSide === "right" || landed}>
+      <Page
+        side="right"
+        box={RIGHT_PAGE}
+        sheet={RIGHT_SHEET_PATH}
+        turning={turningSide === "right" || landed}
+        previews={previewRights}
+      >
         {right}
       </Page>
     </div>

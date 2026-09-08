@@ -26,9 +26,10 @@ type NotebookProps = {
   turningSide?: "left" | "right" | null
   /** The turn has completed: this spread is the one the sheet landed on. */
   landed?: boolean
-  /** The next spread's left page, hidden except during its capture — see
-      Pages.tsx and page-turn/useSpreadCapture.ts. */
-  previewLeftPage?: ReactNode
+  /** The chapters not on the page yet, hidden except during their captures —
+      see Pages.tsx and page-turn/useSpreadCapture.ts. */
+  previewLeftPages?: ReactNode[]
+  previewRightPages?: ReactNode[]
 }
 
 export function Notebook({
@@ -36,7 +37,8 @@ export function Notebook({
   rightPage,
   turningSide = null,
   landed = false,
-  previewLeftPage,
+  previewLeftPages,
+  previewRightPages,
 }: NotebookProps) {
   return (
     <div className="notebook-stage">
@@ -48,7 +50,8 @@ export function Notebook({
           right={rightPage}
           turningSide={turningSide}
           landed={landed}
-          previewLeft={previewLeftPage}
+          previewLefts={previewLeftPages}
+          previewRights={previewRightPages}
         />
         <Spine />
         <Rings />

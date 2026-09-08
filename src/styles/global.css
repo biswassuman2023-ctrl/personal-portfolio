@@ -169,7 +169,14 @@ body {
 .stage {
   position: relative;
   z-index: 2;
-  height: 420vh;
+  /* One viewport for the notebook to sit still in, plus a turn's worth of
+     travel for every sheet in the book. `--turns` comes from App, so binding
+     another chapter lengthens the runway on its own instead of leaving a
+     hand-tuned viewport height to be discovered later as a chapter that runs
+     out of scroll before it finishes turning. The 320 is the original 420vh
+     minus that first sticky viewport, kept exactly so the pace of a single
+     turn is unchanged from when there was only one. */
+  height: calc(100vh + var(--turns, 1) * 320vh);
 }
 
 .stage__sticky {

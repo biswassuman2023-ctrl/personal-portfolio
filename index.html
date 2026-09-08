@@ -5,6 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="light" />
     <title>Suman Biswas — Portfolio</title>
+    <script>
+      // Deliberately here, not in main.tsx. GSAP's ScrollTrigger captures
+      // history.scrollRestoration's CURRENT value the moment it first loads
+      // and re-applies that captured value on every refresh — so setting
+      // this from main.tsx, which only runs after ES module imports have
+      // already pulled ScrollTrigger in (imports always evaluate before the
+      // importing module's own body, regardless of source order), was
+      // fighting a value ScrollTrigger had already snapshotted moments
+      // earlier. A plain, non-module script in <head> runs synchronously
+      // before any module script starts loading, which is the only place
+      // that setting this can actually stick.
+      if ('scrollRestoration' in history) history.scrollRestoration = 'manual'
+    </script>
   </head>
   <body>
     <div id="root"></div>

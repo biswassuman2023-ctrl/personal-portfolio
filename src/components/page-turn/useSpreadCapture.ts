@@ -4,14 +4,19 @@ import { captureFontCSS } from './captureFonts'
 import * as THREE from 'three'
 
 /**
- * Photographs the notebook three times, so the turning sheet has something to
- * show on BOTH of its faces, and what its back shows is real.
+ * Photographs the notebook so every turning sheet has something to show on
+ * BOTH of its faces, and what its back shows is real.
  *
- *   content    the spread as it stands — the front of the sheet
- *   blank      the same notebook with every page's ink hidden — the material
- *              the sheet's cut edge is built from
+ * Per sheet, two photographs — plus ONE shared photograph of the bare paper:
+ *
+ *   content    the spread's right page as it stands — the front of the sheet
  *   nextLeft   the NEXT spread's left page, ink visible — the back of the
  *              sheet, i.e. the page actually being arrived at
+ *   blank      the notebook with every page's ink hidden — the material the
+ *              sheet's cut edge and any unwritten paper is built from. Taken
+ *              once and shared: the paper does not change between chapters,
+ *              and photographing it per turn would only be a chance for the
+ *              three copies to disagree.
  *
  * nextLeft is what makes the back of the sheet a real page rather than a
  * blank one. Without it, the sheet's back showed the same ink-free material
@@ -31,9 +36,41 @@ import * as THREE from 'three'
  * the WebGL sheet cannot drift from it. The grain, the warmth and the
  * across-page gradients all come along for free.
  *
- * All three passes photograph the whole notebook rather than a single page,
- * because the paper is painted by SVG filters defined further up the tree;
- * clone a page on its own and every `url(#…)` in it resolves to nothing.
+ * All passes photograph the whole notebook rather than a single page, because
+ * the paper is painted by SVG filters defined further up the tree; clone a
+ * page on its own and every `url(#…)` in it resolves to nothing.
+ *
+ * EVERY TURN IS PHOTOGRAPHED AT MOUNT, not when its turn comes round. The
+ * chapters that are not on the page yet are photographed from the hidden
+ * preview layers Pages.tsx keeps in the DOM for exactly this
+ * (`previewLefts` / `previewRights`), so no pass ever has to wait for React
+ * to render something first.
+ *
+ * NONE OF THIS TOUCHES THE LIVE, ON-SCREEN NOTEBOOK. Every pass needs to
+ * reveal a different hidden preview and hide the page it is standing in for
+ * — a hard requirement of photographing five different states (blank, two
+ * fronts, two backs) out of one DOM tree. Doing that to `target` itself, the
+ * SAME element the reader is looking at, used to mean the reader's own screen
+ * briefly showed whatever the capture needed at that instant: the whole
+ * spread's ink vanishing during the blank pass, a later chapter's page
+ * flashing in during a preview reveal, all of it happening on real, painted
+ * pixels seconds after the page loaded. It cost nothing to reproduce and
+ * explained the entire family of "pages look tangled for a moment" reports —
+ * every one of them was a genuine photograph of a real, momentary DOM state,
+ * just not one anybody was supposed to see.
+ *
+ * The fix is a DEEP CLONE of `target`, detached from layout via
+ * `position: fixed` and parked far off-screen, and every mutation below runs
+ * on that clone instead. The clone carries its own copy of every preview
+ * layer already in `target` (nothing to wait on), and — because `.notebook-
+ * stage`'s own sizing is entirely `vw`/`dvh`-based rather than inherited from
+ * a parent's box (see notebook.css), moving it off-screen changes nothing
+ * about how it lays out. `target` itself is never read from after the clone
+ * exists and never written to at all.
+ *
+ * Results are published PER TURN as each finishes, so the first sheet is ready
+ * to move while the later ones are still being taken — the reader can start
+ * scrolling immediately and the rest arrive long before they are reached.
  *
  * Resolution is deliberately above the display's: this is what you look at
  * while the page is moving.
@@ -69,6 +106,9 @@ const MAX_PIXEL_RATIO = 3
  */
 const SHADING = '.notebook__page-shading'
 
+const PREVIEW = '.notebook__page-content--preview'
+const LIVE_CONTENT = '.notebook__page-content:not(.notebook__page-content--preview)'
+
 /**
  * Every photograph printed anywhere in the captured DOM must actually be
  * downloaded and decoded before the FIRST screenshot, or that screenshot
@@ -90,6 +130,10 @@ const SHADING = '.notebook__page-shading'
  * essentially instantly; nothing here has to know which component put an
  * image where, so a future photo anywhere in the notebook is covered for
  * free.
+ *
+ * Run against the CLONE, not `target` — its `<img>`/`<image>` nodes are fresh
+ * DOM elements that need their own load/decode even when the same URL was
+ * already fetched once for the live page's copy.
  */
 async function waitForImages(root: HTMLElement) {
   const urls = new Set<string>()
@@ -111,6 +155,36 @@ async function waitForImages(root: HTMLElement) {
   )
 }
 
+/**
+ * A detached, off-screen copy of `source`, laid out exactly as it is on
+ * screen but invisible and inert.
+ *
+ * `position: fixed` takes it out of document flow entirely — nothing here can
+ * grow the page's scroll size or introduce a scrollbar — and parking it far
+ * to the left keeps it off every real monitor without relying on `opacity`
+ * or `visibility`, either of which would have to be set on the clone's OWN
+ * ancestor chain rather than on the clone itself: html-to-image reads the
+ * capture ROOT's own computed style, so hiding the root the same way would
+ * photograph nothing.
+ */
+function offscreenClone(source: HTMLElement) {
+  const mount = document.createElement('div')
+  mount.setAttribute('aria-hidden', 'true')
+  mount.style.position = 'fixed'
+  mount.style.top = '0'
+  mount.style.left = '-100000px'
+  mount.style.pointerEvents = 'none'
+
+  const clone = source.cloneNode(true) as HTMLElement
+  mount.appendChild(clone)
+  document.body.appendChild(mount)
+
+  return {
+    clone,
+    remove: () => mount.remove(),
+  }
+}
+
 export type SpreadCapture = {
   /** The spread with its ink: the front of the turning sheet. */
   content: THREE.Texture
@@ -127,24 +201,94 @@ export type SpreadCapture = {
   pixelRatio: number
 }
 
-export function useSpreadCapture(target: HTMLElement | null, enabled: boolean) {
-  const [capture, setCapture] = useState<SpreadCapture | null>(null)
+/**
+ * Which hidden chapter, if any, this pass needs standing in for the live page.
+ * `undefined` on a side means "photograph whatever is really on the page".
+ */
+type Reveal = { left?: number; right?: number }
+
+export function useSpreadCapture(target: HTMLElement | null, enabled: boolean, turns: number) {
+  const [captures, setCaptures] = useState<SpreadCapture[]>([])
 
   useEffect(() => {
-    if (!target || !enabled || capture) return
+    if (!target || !enabled || turns < 1) return
 
     let cancelled = false
     const made: THREE.Texture[] = []
+    let density = 1
+    let detach: (() => void) | null = null
 
-    const shoot = async (mode: 'content' | 'blank' | 'nextLeft', fontCSS: string) => {
-      target.setAttribute('data-capturing', mode)
+    /* Anything a previous run published points at textures this run's cleanup
+       has already disposed. Start from nothing and let this run republish; the
+       turn simply stays disabled for the moment in between, which is the same
+       state the very first mount is in.
+
+       Deliberately synchronous. Doing it a tick later leaves a window in which
+       the sheet can be asked to render disposed textures, which is a black
+       page rather than a slow one — and the whole point of clearing is to
+       close that window. */
+    // oxlint-disable-next-line react/set-state-in-effect
+    setCaptures([])
+
+    /**
+     * Stands a hidden preview layer in for the live page for the duration of
+     * one pass, and puts the page back afterwards — on `root`, the off-screen
+     * clone, never on the notebook the reader is looking at.
+     *
+     * Done with inline styles from JS rather than by stylesheet, because which
+     * preview to show is an INDEX and CSS cannot select on one. (The rules
+     * that do not need to count — the blank pass, the turning page — stay in
+     * page-turn.css where they read better.)
+     */
+    const stand = (root: HTMLElement, reveal: Reveal) => {
+      const undo: Array<() => void> = []
+
+      const setVisibility = (el: HTMLElement, value: string) => {
+        const had = el.style.visibility
+        el.style.visibility = value
+        undo.push(() => {
+          el.style.visibility = had
+        })
+      }
+
+      for (const side of ['left', 'right'] as const) {
+        const index = reveal[side]
+        if (index === undefined) continue
+
+        const page = root.querySelector<HTMLElement>(`.notebook__page--${side}`)
+        if (!page) continue
+
+        const wanted = page.querySelector<HTMLElement>(
+          `${PREVIEW}[data-preview-index="${index}"]`,
+        )
+        if (!wanted) continue
+
+        // The real page steps aside; the chapter being photographed steps in.
+        const live = page.querySelector<HTMLElement>(LIVE_CONTENT)
+        if (live) setVisibility(live, 'hidden')
+        setVisibility(wanted, 'visible')
+      }
+
+      return () => {
+        for (const fn of undo) fn()
+      }
+    }
+
+    const shoot = async (
+      root: HTMLElement,
+      mode: 'content' | 'blank' | 'nextLeft',
+      fontCSS: string,
+      reveal: Reveal = {},
+    ) => {
+      root.setAttribute('data-capturing', mode)
+      const restore = stand(root, reveal)
       // ALL passes: neither face may carry baked lighting. The front used to
       // keep it, on the assumption the serialiser reproduced the page it was
       // photographing — it does not. Measured against the live page, the
       // captured right page came back nearly flat (~228 across) where the real
       // one runs 199 at the binding to 242 mid-page, so the sheet changed tone
       // the instant a turn began. Lighting is the shader's job on every face.
-      const shading = Array.from(target.querySelectorAll<SVGGElement>(SHADING))
+      const shading = Array.from(root.querySelectorAll<SVGGElement>(SHADING))
       for (const g of shading) g.setAttribute('display', 'none')
       try {
         const pixelRatio = Math.min(
@@ -152,7 +296,7 @@ export function useSpreadCapture(target: HTMLElement | null, enabled: boolean) {
           MAX_PIXEL_RATIO,
         )
         density = pixelRatio
-        const canvas = await toCanvas(target, {
+        const canvas = await toCanvas(root, {
           pixelRatio,
           backgroundColor: undefined,
           // Explicit, because letting the library find the fonts itself lost
@@ -171,40 +315,71 @@ export function useSpreadCapture(target: HTMLElement | null, enabled: boolean) {
         return texture
       } finally {
         for (const g of shading) g.removeAttribute('display')
-        target.removeAttribute('data-capturing')
+        restore()
+        root.removeAttribute('data-capturing')
       }
     }
-
-    let density = 1
 
     const run = async () => {
       // Webfonts must resolve first, or the capture bakes in the fallbacks.
       await document.fonts.ready
-      // Photographs next — the preview layer's image is already in the DOM
-      // (just visibility:hidden), so this catches it before the very first
-      // shoot rather than only before whichever pass happens to reveal it.
-      await waitForImages(target)
       await new Promise((r) => requestAnimationFrame(() => r(null)))
+      if (cancelled) return
+
+      // Everything from here on happens to a copy — see offscreenClone.
+      const { clone, remove } = offscreenClone(target)
+      detach = remove
+
+      // Photographs next — every chapter's images, including the ones only in
+      // the hidden preview layers, so no pass can shoot an empty well. Waited
+      // on the CLONE's own <img>/<image> nodes: freshly cloned elements need
+      // their own decode even when the URL was already fetched once for the
+      // live page's copy.
+      await waitForImages(clone)
       if (cancelled) return
 
       try {
         const fontCSS = await captureFontCSS()
         if (cancelled) return
-        const content = await shoot('content', fontCSS)
+
+        const blank = await shoot(clone, 'blank', fontCSS)
         if (cancelled) return
-        const blank = await shoot('blank', fontCSS)
-        if (cancelled) return
-        // Only if there is a next spread to preview at all — Pages.tsx does
-        // not render the preview layer when `previewLeft` is undefined, so
-        // its absence here means "nothing past this chapter yet," not a bug.
-        const hasPreview = !!target.querySelector('.notebook__page-content--preview')
-        const nextLeft = hasPreview ? await shoot('nextLeft', fontCSS) : null
-        if (cancelled) return
-        setCapture({ content, blank, nextLeft, pixelRatio: density })
+
+        const shots: SpreadCapture[] = []
+
+        for (let turn = 0; turn < turns; turn++) {
+          /* The sheet's FRONT is spread `turn`'s right page. At mount the
+             live right page is spread 0's, so only later turns need a stand-in
+             — preview index t-1 holds spread t's right page (the previews
+             start at spread 1; there is no preview of the page already
+             showing). */
+          const content = await shoot(
+            clone,
+            'content',
+            fontCSS,
+            turn === 0 ? {} : { right: turn - 1 },
+          )
+          if (cancelled) return
+
+          /* ...and its BACK is spread `turn + 1`'s left page, which is never
+             the one on screen at mount, so it always comes from a preview.
+             Absent past the last chapter: the shader treats a missing back as
+             material only, exactly as it did before any of this existed. */
+          const backing = clone.querySelector(
+            `.notebook__page--left ${PREVIEW}[data-preview-index="${turn}"]`,
+          )
+          const nextLeft = backing ? await shoot(clone, 'nextLeft', fontCSS, { left: turn }) : null
+          if (cancelled) return
+
+          shots.push({ content, blank, nextLeft, pixelRatio: density })
+          // Published one at a time: the first sheet can move while the rest
+          // are still being photographed.
+          setCaptures([...shots])
+        }
       } catch {
         // A failed capture must not take the page down: the turn stays disabled
         // and the spread keeps rendering as live DOM.
-        setCapture(null)
+        setCaptures([])
       }
     }
 
@@ -212,9 +387,10 @@ export function useSpreadCapture(target: HTMLElement | null, enabled: boolean) {
 
     return () => {
       cancelled = true
+      detach?.()
       for (const t of made) t.dispose()
     }
-  }, [target, enabled, capture])
+  }, [target, enabled, turns])
 
-  return capture
+  return captures
 }

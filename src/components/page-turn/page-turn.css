@@ -31,6 +31,28 @@
   height: 100% !important;
 }
 
+/* The layer is a picture of a moving page, never a control — so nothing
+   inside it may take a pointer.
+ *
+ * `pointer-events` is inherited, so the rule on `.page-turn` above ought to
+ * be enough, and it is not: react-three-fiber gives its own canvas wrapper an
+ * explicit value, which re-enables hit testing on the one element that covers
+ * the entire notebook. Opacity 0 does not stop a hit test either, so from the
+ * moment the first capture resolves this sat over both pages swallowing every
+ * pointer event, at every scroll position.
+ *
+ * Nothing noticed while the notebook was purely something to look at. Chapter
+ * 03 is the first spread the reader touches — stamps that answer a moving
+ * cursor, prints that can be pushed around — and none of it received a single
+ * event until this rule existed. */
+.page-turn * {
+  /* `!important` because react-three-fiber writes this INLINE on its own
+     container, and an inline style beats an ordinary rule. Overriding a
+     library's inline style is the case the keyword exists for; without it the
+     rule reads as though it works and silently does not. */
+  pointer-events: none !important;
+}
+
 /* While a sheet is in the air, WebGL is drawing it — so its INK must not also
    show through underneath. The paper stays: what is left behind is the next
    spread's sheet, which is the same paper with nothing printed on it yet.
@@ -82,10 +104,11 @@
   visibility: hidden;
 }
 
-[data-capturing='nextLeft'] .notebook__page--left .notebook__page-content:not(.notebook__page-content--preview) {
-  visibility: hidden;
-}
-
-[data-capturing='nextLeft'] .notebook__page-content--preview {
-  visibility: visible;
-}
+/* WHICH preview to reveal is not expressible here. There is one per chapter
+   still to come, they are told apart by `data-preview-index`, and a stylesheet
+   cannot select "the one whose index is the number this pass happens to be
+   on" — so useSpreadCapture reveals it with an inline style and puts the live
+   page back afterwards. Inline beats the rule above without needing
+   `!important`, and the blank pass's own `!important` above still wins over
+   both, which is correct: a pass photographing bare paper wants every layer
+   dark, previews included. */
