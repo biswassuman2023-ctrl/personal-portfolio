@@ -1,0 +1,328 @@
+/* ------------------------------------------------ chapter 04 — the board --
+   What I build with: an investigation board hanging in the same room the
+   notebook lies in.
+
+   That framing is the reason this section is an OBJECT with edges and a
+   shadow rather than a full-bleed background treatment. The notebook is a
+   thing sitting on the blue canvas; if this were a wall-to-wall texture the
+   two would stop belonging to one world and the site would read as a
+   portfolio page that changes theme halfway down. Same room, second object.
+
+   Everything is sized in `--bu`, one board unit — the same technique the
+   notebook uses with `--u`, for the same reason: the composition was placed
+   by eye against a fixed 1440x900 frame and must scale as one piece rather
+   than reflow into a different arrangement at another width. */
+
+.board-section {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  justify-content: center;
+  padding: clamp(4rem, 9vh, 6.5rem) 4vmin clamp(5rem, 11vh, 8rem);
+}
+
+.board-stage {
+  position: relative;
+  /* Sized the way the notebook is (notebook.css `.notebook-stage`) and for
+     the same reason: a board wider than the room is tall would be cropped by
+     the viewport rather than sitting IN it. The height budget is what
+     actually caps it on a laptop — the width limit only ever wins on a very
+     wide, very short window. */
+  width: min(88vw, 1440px);
+  max-width: calc((100dvh - 15rem) * 1.6);
+  aspect-ratio: 1440 / 900;
+  /* `--bu` below is a percentage of THIS box, so the board's own width is
+     what one unit is measured against — the container query is the whole
+     mechanism that lets a hand-placed layout scale intact. */
+  container-type: inline-size;
+}
+
+.board {
+  --bu: calc(100cqw / 1440);
+
+  /* The board's ink. Deep editorial red for anything printed, near-black for
+     anything written, and one muted red between them for marks that are
+     neither — the same three-tone discipline Chapters 02 and 03 run on, so
+     the section reads as the same hand. */
+  --board-red: #c1281b;
+  --board-red-deep: #9c2015;
+  --board-red-muted: #743026;
+  --board-ink: #23201a;
+
+  position: absolute;
+  inset: 0;
+}
+
+/* The surface itself: warm board, its own grain, its own edge, its own
+   shadow. Drawn rather than styled — a CSS gradient with a border-radius is
+   the one thing that would give the whole conceit away. */
+.board__surface {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  overflow: visible;
+  filter:
+    drop-shadow(0 calc(var(--bu) * 3) calc(var(--bu) * 6) rgba(38, 32, 24, 0.16))
+    drop-shadow(0 calc(var(--bu) * 14) calc(var(--bu) * 26) rgba(38, 32, 24, 0.12));
+}
+
+/* Filters and gradients only — no geometry of its own, and never painted. */
+.board__defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+
+/* Title, eyebrow and the one handwritten note travel together, at their own
+   shallow depth — they are stuck to the board, not floating in front of it. */
+.board__title-layer {
+  position: absolute;
+  inset: 0;
+  will-change: transform;
+  pointer-events: none;
+}
+
+/* Threads sit ON the board and UNDER everything pinned to it, which is the
+   real stacking order of a thread tied between two tacks. */
+.board__threads {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+/* --------------------------------------------------------------- title --
+   Words knocked out of cut red bars. Each bar is its own element so each can
+   carry its own width and angle; a single block with three lines in it would
+   be one rectangle wearing three haircuts. */
+
+.board-title {
+  position: absolute;
+  pointer-events: none;
+}
+
+.board-title__bar {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  background: var(--board-red);
+  color: #fbf7ef;
+  font-family: var(--font-display);
+  line-height: 1;
+  letter-spacing: 0.045em;
+  padding-inline: calc(var(--bu) * 16);
+  /* Enough to sit the type optically centred in the bar — Pagkaki's own
+     metrics run high, so true centring leaves it looking pushed up. */
+  padding-block: calc(var(--bu) * 4) 0;
+  box-shadow: calc(var(--bu) * 1.5) calc(var(--bu) * 2.5) 0 rgba(40, 30, 24, 0.14);
+}
+
+.board-eyebrow {
+  position: absolute;
+  font-family: var(--font-hand);
+  font-size: calc(var(--bu) * 17);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--board-red-muted);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.board-note {
+  position: absolute;
+  margin: 0;
+  font-family: var(--font-hand);
+  font-size: calc(var(--bu) * 19);
+  line-height: 1.5;
+  color: var(--board-ink);
+  pointer-events: none;
+}
+
+/* ---------------------------------------------------------------- cards --
+   Two nested elements, and the split is load-bearing: the OUTER one is
+   written to every frame by the motion loop (parallax, hover lift, its own
+   resting angle), the INNER one holds the paper and never moves on its own.
+   One element trying to carry both a per-frame transform and a tween would
+   have them overwrite each other. */
+
+/* The real stacking order of the object: board, then the threads lying on it,
+   then the title stuck over those, then everything pinned on top. A card
+   being read comes up above the rest of the pile — including its own thread,
+   which is what a card lifted off a board actually does. */
+.board__surface { z-index: 1; }
+.board__threads { z-index: 2; }
+.board__title-layer { z-index: 3; }
+
+.board-card {
+  position: absolute;
+  z-index: 4;
+  transform-origin: 50% 50%;
+  will-change: transform;
+}
+
+.board-card.is-open {
+  z-index: 6;
+}
+
+.board-card__body {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  /* The flap swings on this. Without a perspective the fold is an affine
+     squash — paper folding flat instead of paper opening. */
+  perspective: calc(var(--bu) * 900);
+}
+
+.board-card__sheet {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  overflow: visible;
+}
+
+/* The whole face is the control. A real button rather than a div with a
+   click handler, so it is reachable and operable from the keyboard without
+   rebuilding any of that by hand. */
+.board-card__face {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.board-card__face:focus-visible {
+  outline: calc(var(--bu) * 2.5) solid var(--board-red);
+  outline-offset: calc(var(--bu) * 4);
+}
+
+/* The card's filing mark, up in the corner and out of the way of what the
+   card actually says. */
+.board-card__index {
+  position: absolute;
+  left: calc(var(--bu) * 19);
+  top: calc(var(--bu) * 19);
+  font-family: var(--font-display);
+  font-size: calc(var(--bu) * 17);
+  letter-spacing: 0.12em;
+  color: var(--board-red-muted);
+}
+
+
+.board-card__name {
+  position: absolute;
+  left: calc(var(--bu) * 19);
+  right: calc(var(--bu) * 16);
+  top: calc(var(--bu) * 46);
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: calc(var(--bu) * 29);
+  line-height: 1.02;
+  letter-spacing: 0.01em;
+  color: var(--board-red);
+}
+
+/* The note in the margin, set directly under the name rather than dropped to
+   the far edge of the card. Two lines of type with a band of empty paper
+   between them read as two unrelated things; sitting them together makes one
+   block, and leaves the bottom of the card as what it should be — paper. */
+.board-card__blurb {
+  position: absolute;
+  left: calc(var(--bu) * 20);
+  right: calc(var(--bu) * 16);
+  top: calc(var(--bu) * 84);
+  font-family: var(--font-hand);
+  font-size: calc(var(--bu) * 17);
+  line-height: 1.2;
+  color: var(--board-ink);
+  opacity: 0.78;
+}
+
+/* ----------------------------------------------------------------- flap --
+   The inside of the folded note. Hinged along the card's bottom edge, folded
+   up behind it at rest, swung down on open. */
+
+.board-card__flap {
+  position: absolute;
+  left: 0;
+  top: 100%;
+  width: 100%;
+  transform-origin: 50% 0;
+  transform: rotateX(-90deg);
+  /* Mid-swing we would otherwise be reading the list mirrored through the
+     back of the paper. Paper is not transparent. */
+  backface-visibility: hidden;
+  pointer-events: none;
+}
+
+.board-card.is-open .board-card__flap {
+  pointer-events: auto;
+}
+
+.board-card__flap-sheet {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  overflow: visible;
+}
+
+.board-card__stack {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  /* Written on the inside of the fold, so it is not readable until the flap
+     is actually facing the room — CategoryCard brings it up near the end of
+     the swing rather than carrying it round on the back of the paper. */
+  opacity: 0;
+  padding: calc(var(--bu) * 30) calc(var(--bu) * 18) 0 calc(var(--bu) * 20);
+  list-style: none;
+  display: grid;
+  align-content: start;
+  gap: 0;
+}
+
+.board-card__stack li {
+  display: flex;
+  align-items: baseline;
+  gap: calc(var(--bu) * 8);
+  height: calc(var(--bu) * 27);
+  font-family: var(--font-hand);
+  font-size: calc(var(--bu) * 19);
+  line-height: 1;
+  color: var(--board-ink);
+}
+
+/* The mark down the left of each entry. A dash rather than a bullet: a
+   bulleted list is a document, a dashed one is something written out. */
+.board-card__stack li::before {
+  content: '—';
+  color: var(--board-red);
+  font-family: var(--font-display);
+  font-size: calc(var(--bu) * 14);
+}
+
+/* ------------------------------------------------------------- reduced --
+   No parallax, no lift, no swing. The flap still opens, because that is the
+   content, not the decoration — it just arrives instead of travelling. */
+
+@media (prefers-reduced-motion: reduce) {
+  .board-card {
+    will-change: auto;
+  }
+}

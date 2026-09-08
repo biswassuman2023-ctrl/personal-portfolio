@@ -14,6 +14,7 @@ import type { Spread } from './components/page-turn/spreads'
 import { PageTurnStage } from './components/page-turn/PageTurnStage'
 import { useSpreadCapture } from './components/page-turn/useSpreadCapture'
 import { useTurnProgress } from './components/page-turn/useTurnProgress'
+import { SkillsBoard } from './components/board/SkillsBoard'
 import { startSmoothScroll } from './lib/smoothScroll'
 import './components/hero/hero.css'
 import './components/method/method.css'
@@ -131,6 +132,10 @@ export default function App() {
           </div>
         </div>
       </div>
+
+      {/* Out of the notebook and into the room it was lying in. The board is
+          the next OBJECT rather than the next page — see SkillsBoard. */}
+      <SkillsBoard />
     </main>
   )
 }
